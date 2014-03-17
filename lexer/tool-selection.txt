@@ -1,0 +1,4 @@
+We picked ruby because the prototype lexer is fifteen lines. More
+seriously, we liked the expressiveness and good support for regular
+expressions. Also, unlike python, ruby isn't afraid of it's heritage in
+scheme.
