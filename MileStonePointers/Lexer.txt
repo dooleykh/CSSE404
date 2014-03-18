@@ -1,0 +1,1 @@
+Testcases for Milestone are located in the testcases subdirectory. *.java files are used as input to the lexer (ruby lexer.rb *.java). The corresponding *_tokens.txt file contains the expected tokens.

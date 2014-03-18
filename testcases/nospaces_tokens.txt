@@ -1,0 +1,16 @@
+ReservedWord, class
+ReservedWord, public
+ReservedWord, static
+ReservedWord, return
+Integer, 1055001055
+Operator, +
+Delimiter, =
+Delimiter, {
+Delimiter, }
+ReservedWord, class
+Operator, &&
+ReservedWord, extends
+Operator, ==
+Integer, 0
+Integer, 0
+Integer, 0

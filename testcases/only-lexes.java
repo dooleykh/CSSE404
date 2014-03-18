@@ -1,7 +1,7 @@
 class abstract abstract class extends class main extends main{int[] args}{
 	int int int main <= 42[];
 	main extends int{
-		system.out.println(class abstract){
+		System.out.println(class abstract){
 			if(return){
 				return;
 			}
