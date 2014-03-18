@@ -7,9 +7,13 @@ class abstract abstract class extends class main extends main{int[] args}{
 			}
 		}
 		;;;
+
+		return && return || return main class int extends;;
 	}
 	/* nested comments don't exist /* */
 }
+
+{{}}}}{{
 
 main class extends abstract main void int main(int return false){
 	hello;
