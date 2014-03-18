@@ -12,6 +12,10 @@ blockComment = false
 input.each { |line| 
   l = line
 
+  if l["//"]
+    l = l.gsub(/\/\/.*/, ' ').lstrip
+  end
+  
   if blockComment
     if l["*/"]
       #      l = l.gsub(/.*\*\/(.*)/, ' ').lstrip
@@ -31,10 +35,6 @@ input.each { |line|
       l = l.gsub(/\/\*.*/, ' ').lstrip
       blockComment = true
     end
-  end
-
-  if l["//"]
-    l = l.gsub(/\/\/.*/, ' ').lstrip
   end
   
   until l.empty?
