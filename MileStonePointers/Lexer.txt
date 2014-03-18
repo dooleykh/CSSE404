@@ -1,1 +1,3 @@
-Testcases for Milestone are located in the testcases subdirectory. *.java files are used as input to the lexer (ruby lexer.rb *.java). The corresponding *_tokens.txt file contains the expected tokens.
+Testcases for Milestone are located in the testcases subdirectory. *.java files are used as input to the lexer (ruby lexer.rb *.java). The corresponding *_tokens.txt file contains the expected tokens. 
+
+The files some-valid.java and keysmash.java are currently being used to test various approaches for tokenizing invalid inputs, and should not be considered as valid MiniJava files. Thus, no token list has been provided for them.
