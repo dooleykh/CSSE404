@@ -1,11 +1,11 @@
 input = ARGF.readlines.map(&:lstrip).map(&:rstrip).map(&:chomp)
 
 token_classes = {
-  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(.*)/,
-  "Operator" => /^(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!)(.*)/,
-  "Delimiter" => /^(;|\.|,|=|\(|\)|\{|\}|\[|\])(.*)/,
-  "Integer" => /^(0|[1-9][0-9]*)(.*)/,
-  "ID" => /^([a-zA-Z])([a-zA-Z0-9]*)(.*)/
+  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(.*)$/,
+  "Operator" => /^(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!)(.*)$/,
+  "Delimiter" => /^(;|\.|,|=|\(|\)|\{|\}|\[|\])(.*)$/,
+  "Integer" => /^(0|[1-9][0-9]*)(.*)$/,
+  "ID" => /^([a-zA-Z])([a-zA-Z0-9]*)(.*)$/
 }
 
 blockComment = false
@@ -38,6 +38,7 @@ input.each { |line|
   end
   
   until l.empty?
+    l2 = l
     token_classes.each_key{ |x|
       if l =~ token_classes[x]
         if $3
@@ -49,7 +50,16 @@ input.each { |line|
           l = $2.lstrip
         end
         break
-      end
+      end     
     }
+    if l == l2
+      #No symbols matched. Consume one character and continue tokenizing (potential errors)
+      #TODO: Decide on approach for failures in tokenizing
+      l = l[1..-1]
+    end
+  end
+
+  if blockComment
+    #TODO: If reached, block comment was not closed. Decide how to handle. Halt? Parse? Alert developer?
   end
 }
