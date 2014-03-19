@@ -1,7 +1,4 @@
-ReservedWord, class
-ReservedWord, public
-ReservedWord, static
-ReservedWord, return
+ID, classpublicstaticreturn
 Integer, 1055001055
 Operator, +
 Delimiter, =

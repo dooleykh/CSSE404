@@ -1,7 +1,6 @@
 input = ARGF.readlines.map(&:lstrip).map(&:rstrip).map(&:chomp)
-
 token_classes = {
-  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(.*)$/,
+  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(?=(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!|;|\.|,|=|\(|\)|\{|\}|\[|\])|\z|\s)(.*)$/,
   "Operator" => /^(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!)(.*)$/,
   "Delimiter" => /^(;|\.|,|=|\(|\)|\{|\}|\[|\])(.*)$/,
   "Integer" => /^(0|[1-9][0-9]*)(.*)$/,
@@ -11,8 +10,7 @@ token_classes = {
 blockComment = false
 input.each { |line| 
   l = line
-
-  if l["//"]
+  if l["//"] and !blockComment
     l = l.gsub(/\/\/.*/, ' ').lstrip
   end
   
@@ -41,10 +39,13 @@ input.each { |line|
     l2 = l
     token_classes.each_key{ |x|
       if l =~ token_classes[x]
-        if $3
+        if x == "ID"
           #We've matched an ID and may have to merge two pieces (if ID is longer than 1 char)
           puts "#{x}, #{$1 + $2}"
           l = $3.lstrip
+        elsif x == "ReservedWord"
+          puts "#{x}, #{$1}"
+          l = $3.lstrip #Use $3 due to Regex Lookahead
         else
           puts "#{x}, #{$1}"
           l = $2.lstrip
