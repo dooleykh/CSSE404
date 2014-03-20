@@ -8,32 +8,32 @@ token_classes = {
 }
 
 blockComment = false
-input.each { |line| 
-  l = line
-  if l["//"] and !blockComment
-    l = l.gsub(/\/\/.*/, ' ').lstrip
-  end
-  
-  if blockComment
-    if l["*/"]
-      #      l = l.gsub(/.*\*\/(.*)/, ' ').lstrip
-      l = l.gsub(/.*\*\/.*/, ' ').lstrip
-      blockComment = false
-    else
-      l = ""
+input.each { |line|
+  if blockComment or line["//"] or line["/*"]
+    l = ""
+    i = 0
+    until i > line.length - 1
+      if blockComment
+        if line[i, 2] == "*/"
+          blockComment = false
+          i += 2
+        else
+          i += 1
+        end
+      elsif line[i, 2] == "//"
+        break
+      elsif line[i, 2] == "/*"
+        blockComment = true
+        i += 2
+      else
+        l += line[i]
+        i += 1
+      end
     end
+  else
+    l = line
   end
-  
-  if l["/*"]
-    if l["*/"]
-      #The block comment ends on the same line. Find the comment and replace it with whitespace
-      l = l.gsub(/\/\*(.*)\*\//, ' ').lstrip
-    else
-      #The comment carries onto other lines. Grab any code from here and set a flag.
-      l = l.gsub(/\/\*.*/, ' ').lstrip
-      blockComment = true
-    end
-  end
+  l.lstrip
   
   until l.empty?
     l2 = l
