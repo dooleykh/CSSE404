@@ -1,7 +1,7 @@
 input = ARGF.readlines.map(&:lstrip).map(&:rstrip).map(&:chomp)
 token_classes = {
   "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(?=(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!|;|\.|,|=|\(|\)|\{|\}|\[|\])|\z|\s)(.*)$/,
-  "Operator" => /^(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!)(.*)$/,
+  "Operator" => /^(\+|-|\*|\/|<=|<|>=|>|==|!=|&&|\|\||!)(.*)$/,
   "Delimiter" => /^(;|\.|,|=|\(|\)|\{|\}|\[|\])(.*)$/,
   "Integer" => /^(0|[1-9][0-9]*)(.*)$/,
   "ID" => /^([a-zA-Z])([a-zA-Z0-9]*)(.*)$/
@@ -16,6 +16,7 @@ input.each { |line|
       if blockComment
         if line[i, 2] == "*/"
           blockComment = false
+          l += " "
           i += 2
         else
           i += 1
