@@ -5,5 +5,6 @@ output = Dir["./ExpectedOutput/*.out"].sort
   #puts "Testing: #{java[i]}"
   `ruby ../lexer/lexer.rb #{java[i]} > out.txt`
   out = `cmp #{output[i]} out.txt`
-  puts "#{java[i]}: #{out}" if out != ""#out if out != ""
+  puts "#{java[i]}: #{out}" if out != ""
 end
+`rm out.txt`
