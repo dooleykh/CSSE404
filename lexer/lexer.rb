@@ -1,6 +1,6 @@
 input = ARGF.readlines.map(&:lstrip).map(&:rstrip).map(&:chomp)
 token_classes = {
-  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(?=(\+|-|\*|\/|<=|<|>|>=|==|!=|&&|\|\||!|;|\.|,|=|\(|\)|\{|\}|\[|\])|\z|\s)(.*)$/,
+  "ReservedWord" => /^(class|public|static|extends|void|int|boolean|if|else|while|return|null|true|false|this|new|String|main|System\.out\.println)(?=(\+|-|\*|\/|<=|<|>=|>|==|!=|&&|\|\||!|;|\.|,|=|\(|\)|\{|\}|\[|\])|\z|\s)(.*)$/,
   "Operator" => /^(\+|-|\*|\/|<=|<|>=|>|==|!=|&&|\|\||!)(.*)$/,
   "Delimiter" => /^(;|\.|,|=|\(|\)|\{|\}|\[|\])(.*)$/,
   "Integer" => /^(0|[1-9][0-9]*)(.*)$/,
