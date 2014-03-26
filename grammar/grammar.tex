@@ -1,0 +1,148 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{tikz}
+\author{Dillon Scroggin, Kyle Dooley}
+\title{CSSE 404, MiniJava Grammar}
+\date{March 28, 2014.}
+
+\begin{document}
+\maketitle
+%\thanks{}
+
+\begin{tabular}{ l c l }
+	Program & $\rightarrow$ & MainClassDecl ClassDecl* \\
+	\\
+
+	ClassDecl* & $\rightarrow$ & ClassDecl ClassDecl* \\
+	& $|$ & $\epsilon$\\
+	\\
+
+	MainClassDecl & $\rightarrow$ & class ID \{ public static void
+main(String$[]$ ID )\{ Stmt* \}\} \\
+	\\
+
+	Stmt* & $\rightarrow$ & Stmt Stmt* \\
+	&$|$&$\epsilon$ \\
+	\\
+
+	ClassDecl & $\rightarrow$ & class ID \{ ClassVarDecl* MethodDecl* \} \\
+	& $|$ & class ID extends ID \{ ClassVarDecl* MethodDecl* \} \\
+	\\
+
+	MethodDecl* & $\rightarrow$ & MethodDecl MethodDecl* \\
+	&$|$&$\epsilon$ \\
+	\\
+	
+	ClassVarDecl* & $\rightarrow$ & ClassVarDecl ClassVarDecl* \\
+	&$|$&$\epsilon$ \\
+	\\
+
+	ClassVarDecl & $\rightarrow$ & Type ID \\
+	\\
+
+	MethodDecl & $\rightarrow$ & public Type ID ( Formal* )\{ Stmt* return \\ 
+	\\
+
+	Formal* & $\rightarrow$ & Formal+ \\
+	& $|$ & $\epsilon$ \\
+	\\
+
+	Formal+ & $\rightarrow$ & Formal , Formal+ \\
+  	& $|$ & Formal \\
+	\\
+
+	Formal & $\rightarrow$ & Type ID\\
+	\\
+
+	Type & $\rightarrow$ & int\\
+	&$|$& boolean \\
+	&$|$& ID \\
+	\\
+
+	Stmt  & $\rightarrow$ & Type ID = Expr; \\
+	&$|$& \{ Stmt* \} \\
+	&$|$& if( Expr ) Stmt else Stmt \\
+	&$|$& while( Expr ) Stmt\\
+	&$|$& System.out.println( Expr ); \\
+	&$|$& ID = Expr; \\
+	\\
+
+\end{tabular}
+\begin{tabular}{ l c l }
+
+	Expr & $\rightarrow$ & Expr2 $||$ Expr \\
+	&$|$& Expr2 \\
+	\\
+
+	Expr2 & $\rightarrow$ & Expr3 $\&\&$ Expr2 \\
+	&$|$& Expr3 \\
+	\\
+
+	Expr3 & $\rightarrow$ & Expr4 == Expr3 \\
+	&$|$& Expr4 != Expr3 \\
+	&$|$& Expr4 \\
+	\\
+
+	Expr4 & $\rightarrow$ & Expr5 $<$ Expr4 \\
+	&$|$& Expr5 $>$ Expr4 \\
+	&$|$& Expr5 $<=$ Expr4 \\
+	&$|$& Expr5 $>=$ Expr4 \\
+	&$|$& Expr5 \\
+	\\
+
+	Expr5 & $\rightarrow$ & Expr6 + Expr5 \\
+	&$|$& Expr6 - Expr5 \\
+	&$|$& Expr6 \\
+	\\
+
+	Expr6 & $\rightarrow$ & Expr7 * Expr6 \\
+	&$|$& Expr7 / Expr6 \\
+	&$|$& Expr7 \\
+	\\
+
+	Expr7 & $\rightarrow$ & - Expr7 \\
+	&$|$& ! Expr7 \\
+	&$|$& Expr8 \\
+	\\
+
+	Expr8 & $\rightarrow$ & Expr9 . ID ( Expr8* ) \\
+	&$|$& Expr9 \\
+	\\
+
+	Expr8* & $\rightarrow$ & Expr8 , Expr8+ \\
+  	& $|$ & $\epsilon$ \\
+	\\
+
+	Expr8+ & $\rightarrow$ & Expr8 , Expr8+ \\
+  	& $|$ & Expr8 \\
+	\\
+
+	Expr9 & $\rightarrow$ & new ID () \\
+ 	& $|$ & ID \\
+ 	& $|$ & this \\
+ 	& $|$ & Integer \\
+ 	& $|$ & null \\
+ 	& $|$ & true \\
+ 	& $|$ & false \\
+	& $|$ & ( Expr ) \\
+
+	%everything else
+	%-!
+	%*/
+	%+-
+	%< > <= >=
+	%== !=
+	%&&
+	%||
+
+
+
+
+\end{tabular}
+
+%\begin{description}
+%	\item[] Program $\rightarrow$ MainClassDecl ClassDecl*
+%\end{description}
+
+\end{document}
