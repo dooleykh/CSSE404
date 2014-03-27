@@ -1,0 +1,52 @@
+Program -> MainClassDecl ClassDecl* 
+
+ClassDecl* -> ClassDecl ClassDecl* | EPSILON
+
+MainClassDecl -> class ID { public static void main(String[] ID ) { Stmt* } } 
+
+Stmt* -> Stmt Stmt* | EPSILON 
+
+ClassDecl -> class ID { ClassVarDecl* MethodDecl* } | class ID extends ID { ClassVarDecl* MethodDecl* } 
+
+MethodDecl* -> MethodDecl MethodDecl* | EPSILON 
+
+ClassVarDecl* -> ClassVarDecl ClassVarDecl* | EPSILON 
+
+ClassVarDecl -> Type ID 
+
+MethodDecl -> public Type ID ( Formal* ) { Stmt* return }
+
+Formal* -> Formal+ | EPSILON 
+
+Formal+ -> Formal , Formal+ | Formal 
+
+Formal -> Type ID
+
+Type -> int | boolean | ID 
+
+Stmt  -> Type ID = Expr ; | { Stmt* } | if ( Expr ) Stmt else Stmt | while ( Expr ) Stmt | System.out.println ( Expr ) ; | ID = Expr ; 
+
+Expr -> Expr2 PIPEPIPE Expr | Expr2 
+
+
+Expr2 -> Expr3 AMPERSANDAMPERSAND Expr2 | Expr3 
+
+
+Expr3 -> Expr4 == Expr3 | Expr4 != Expr3 | Expr4 
+
+
+Expr4 -> Expr5 < Expr4 | Expr5 > Expr4 | Expr5 <= Expr4 | Expr5  Expr4 | Expr5
+
+Expr5 -> Expr6 + Expr5 | Expr6 - Expr5 | Expr6
+
+Expr6 -> Expr7 * Expr6 | Expr7 / Expr6 | Expr7
+
+Expr7 -> - Expr7 | ! Expr7 | Expr8
+
+Expr8 -> Expr9 . ID ( Expr8* ) | Expr9
+
+Expr8* -> Expr8 , Expr8+ | EPSILON
+
+Expr8+ -> Expr8 , Expr8+ | Expr8
+
+Expr9 -> new ID ( ) | ID | this | Integer | null | true | false | ( Expr )
