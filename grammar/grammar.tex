@@ -41,7 +41,7 @@ main(String$[]$ ID )\{ Stmt* \}\} \\
 	ClassVarDecl & $\rightarrow$ & Type ID \\
 	\\
 
-	MethodDecl & $\rightarrow$ & public Type ID ( Formal* )\{ Stmt* return \\ 
+	MethodDecl & $\rightarrow$ & public Type ID ( Formal* )\{ Stmt* return \} \\ 
 	\\
 
 	Formal* & $\rightarrow$ & Formal+ \\
@@ -110,12 +110,12 @@ main(String$[]$ ID )\{ Stmt* \}\} \\
 	&$|$& Expr9 \\
 	\\
 
-	Expr8* & $\rightarrow$ & Expr8 , Expr8+ \\
+	Expr8* & $\rightarrow$ & Expr8+ \\
   	& $|$ & $\epsilon$ \\
 	\\
 
-	Expr8+ & $\rightarrow$ & Expr8 , Expr8+ \\
-  	& $|$ & Expr8 \\
+	Expr8+ & $\rightarrow$ & Expr , Expr8+ \\
+  	& $|$ & Expr \\
 	\\
 
 	Expr9 & $\rightarrow$ & new ID () \\
