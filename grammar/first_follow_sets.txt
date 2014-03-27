@@ -1,0 +1,107 @@
+First Set
+Non-Terminal Symbol						First Set
+
+
+ε										ε
+class									class
+ID										ID
+{										{
+public									public
+static									static
+void									void
+main(String[]							main(String[]
+)										)
+}										}
+extends									extends
+(										(
+return									return
+,										,
+int										int
+boolean									boolean
+=										=
+;										;
+if										if
+else									else
+while									while
+System.out.println						System.out.println
+ClassDecl*								ε, class
+MainClassDecl							class
+Stmt*									ε, {, if, while, System.out.println, ID, int, boolean
+ClassDecl								class
+MethodDecl*								ε, public
+ClassVarDecl*							ε, int, boolean, ID
+MethodDecl								public
+Formal*									ε, int, boolean, ID
+Type									int, boolean, ID
+Stmt									{, if, while, System.out.println, ID, int, boolean
+Program									class
+ClassVarDecl							int, boolean, ID
+Formal									int, boolean, ID
+Formal+									int, boolean, ID
+
+
+<										<
+>										>
+<=										<=
++										+
+-										-
+*										*
+/										/
+!										!
+.										.
+ID										ID
+(										(
+)										)
+,										,
+ε										ε
+new										new
+this									this
+Integer									Integer
+null									null
+true									true
+false									false
+Expr9									new, ID, this, Integer, null, true, false, (
+Expr8+									-, !, new, ID, this, Integer, null, true, false, (
+Expr8*									-, !, new, ID, this, Integer, null, true, false, (
+Expr8									new, ID, this, Integer, null, true, false, (
+Expr7									-, !, new, ID, this, Integer, null, true, false, (
+Expr6									-, !, new, ID, this, Integer, null, true, false, (
+Expr5									-, !, new, ID, this, Integer, null, true, false, (
+Expr4									-, !, new, ID, this, Integer, null, true, false, (
+Expr3									-, !, new, ID, this, Integer, null, true, false, ( 
+Expr2									-, !, new, ID, this, Integer, null, true, false, (
+Expr									-, !, new, ID, this, Integer, null, true, false, (
+
+
+
+
+Follow Set
+Non-Terminal Symbol						Follow Set
+
+
+Program									$
+ClassDecl*								$
+MainClassDecl							class, $
+Stmt*									}, return
+ClassDecl								class, $
+MethodDecl*								}
+ClassVarDecl*							{, public, extends
+ClassVarDecl							int, boolean, ID, {, public, extends
+MethodDecl								public, }
+Formal*									)
+Formal+									)
+Formal									,, )
+Type									ID
+Stmt									else, {, if, while, System.out.println, ID, int, boolean, }, return
+
+Expr									), ;
+Expr2									||, ), ;
+Expr3									||, &&, ;
+Expr4									||, &&, ==, !=, ;
+Expr5									||, &&, ==, !=, <, >, <=, -, ;
+Expr6									||, &&, ==, !=, +, -, <, >, <=, ;
+Expr7									||, &&, ==, !=, *, /, +, -, <, >, <=, ;
+Expr8									||, &&, ==, !=, ,, *, /, +, -, <, >, <=, ;
+Expr8*									,, )
+Expr8+									,, )
+Expr9									||, &&, ==, !=, ., ,, *, /, +, -, <, >, <=, ;
