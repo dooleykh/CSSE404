@@ -15,18 +15,18 @@ module Lexer
     input = File.open(file) do |f|
       f.readlines.map(&:lstrip).map(&:rstrip).map(&:chomp)
     end
-    blockComment = false
+    block_comment = false
     block_comment_line_num = -1
     
     words = Enumerator.new do |enum| 
       input.each_with_index { |line, line_num|
-        if blockComment or line["//"] or line["/*"]
+        if block_comment or line["//"] or line["/*"]
           l = ""
           i = 0
           until i > line.length - 1
-            if blockComment
+            if block_comment
               if line[i, 2] == "*/"
-                blockComment = false
+                block_comment = false
                 l += " "
                 i += 2
               else
@@ -35,7 +35,7 @@ module Lexer
             elsif line[i, 2] == "//"
               break
             elsif line[i, 2] == "/*"
-              blockComment = true
+              block_comment = true
               i += 2
             else
               l += line[i]
@@ -74,7 +74,7 @@ module Lexer
           end
         end
       }
-      if blockComment
+      if block_comment
         #Hanging block comment, so for ease raise an error
         enum << Word.new(:BlockCommentError, block_comment_line_num + 1)
       end
