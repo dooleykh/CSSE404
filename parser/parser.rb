@@ -1,0 +1,130 @@
+require '../lexer/lexer.rb'
+
+First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
+		  :StmtSt => [:epsilon, "{", "if", "while", "System.out.println", :ID, "int", "boolean"]
+}
+
+class ParseTree
+	@name
+	@children
+end
+
+def checkFirst(symbol, token)
+	firstSet = First[symbol]
+	firstSet.each { |x|
+		if x.class == String
+			if token.value == x
+				return true
+			end
+		else
+			if token.token == x
+				return true
+			end
+		end
+	}
+
+	false
+end
+
+def errorCheck(symbol, iter)
+	until checkFirst(symbol, iter.peek)
+		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\""
+		iter.next
+	end
+end
+
+def eatThru(symbol, iter)
+	while true
+		if symbol.class == String && iter.peek.value == symbol
+			break
+		elsif iter.peek.token == symbol
+			break
+		else
+			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\""
+			iter.next
+		end
+	end
+
+	iter.next
+end
+
+
+def program(iter)
+
+	begin
+		errorCheck(:Program, iter)
+	rescue StopIteration
+		puts "Unexpected end of input"
+		return :epsilon
+	end
+	
+	result = ParseTree.new
+
+	result.name = :Program
+	result.children = [mainClassDecl(iter), classDeclSt(iter)]
+	result.children.filter! { |x| x != :epsilon }
+
+	result
+
+end
+
+def classDeclSt(iter)
+
+	begin
+		errorCheck(:ClassDeclSt, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+	
+	result = ParseTree.new
+	result.name = :ClassDeclSt
+
+	result.children = [classDecl(iter), classDeclSt(iter)]
+	result.children.filter! { |x| x != :epsilon }
+
+	result
+end
+
+def ClassDecl(iter)
+
+	begin
+		errorCheck(:ClassDecl, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :ClassDecl
+
+	begin
+
+		eatThru("class", iter)
+
+		child = id(iter)
+		result.children.push child
+
+		symbol = iter.peek
+		if(symbol.value == "extends")
+
+			eatThru("extends", iter)
+
+			child = id(iter)
+			result.children.push child
+
+		end
+
+		eatThru("{", iter)
+
+		result.children.push classVarDeclSt(iter)
+		result.children.push methodDeclSt(iter)
+
+		eatThru("}", iter)
+
+	rescue StopIteration
+		puts "Unexpected end of input in ClassDecl"
+		return :epsilon
+	end
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
