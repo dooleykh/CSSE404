@@ -9,6 +9,8 @@ class ParseTree
 	@children
 end
 
+class InvalidParse < Exception
+end
 
 def template(iter)
 
@@ -26,7 +28,7 @@ def template(iter)
 		#do things
 	rescue StopIteration
 		puts "Unexpected end of input in Template"
-		return :epsilon
+		raise InvalidParse
 	end
 
 	result.children.filter { |x| x != :epsilon}
@@ -52,7 +54,7 @@ end
 
 def errorCheck(symbol, iter)
 	until checkFirst(symbol, iter.peek)
-		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\""
+		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", cannot start #{symbol}"
 		iter.next
 	end
 end
@@ -146,7 +148,7 @@ def mainClassDecl(iter)
 
 	rescue StopIteration
 		puts "Unexpected end of input in ClassDecl"
-		return :epsilon
+		raise InvalidParse
 	end
 	
 	result.children.filter { |x| x != :epsilon}
@@ -207,7 +209,7 @@ def ClassDecl(iter)
 
 	rescue StopIteration
 		puts "Unexpected end of input in ClassDecl"
-		return :epsilon
+		raise InvalidParse
 	end
 
 	result.children.filter { |x| x != :epsilon}
