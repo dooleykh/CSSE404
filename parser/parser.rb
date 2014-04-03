@@ -85,6 +85,50 @@ def classDeclSt(iter)
 	result
 end
 
+def mainClassDecl(iter)
+
+	begin
+		errorCheck(:mainClassDecl, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :MainClassDecl
+
+	begin
+		eatThru("class", iter)
+		result.children.push id(iter)
+
+		eatThru("{")
+		eatThru("public")
+		eatThru("static")
+		eatThru("void")
+		eatThru("main")
+		eatThru("(")
+		eatThru("String")
+		eatThru("[")
+		eatThru("]")
+
+		result.children.push id(iter)
+
+		eatThru(")")
+		eatThru("{")
+
+		result.children.push stmtSt(iter)
+
+		eatThru("}")
+		eatThru("}")
+
+	rescue StopIteration
+		puts "Unexpected end of input in ClassDecl"
+		return :epsilon
+	end
+	
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
 def ClassDecl(iter)
 
 	begin
