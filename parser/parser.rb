@@ -153,29 +153,22 @@ def mainClassDecl(iter)
 	result
 end
 
-def template(iter)
+def stmtSt(iter)
 
 	begin
-		errorCheck(:Template, iter)
+		errorCheck(:StmtSt, iter)
 	rescue StopIteration
 		return :epsilon
 	end
 
 	result = ParseTree.new
-	result.name = :Template
+	result.name = :StmtSt
 
-	#if getting any tokens
-	begin
-		#do things
-	rescue StopIteration
-		puts "Unexpected end of input in Template"
-		return :epsilon
-	end
+	result.children = [stmt(iter), stmtSt(iter)]
 
 	result.children.filter { |x| x != :epsilon}
 	result
 end
-
 
 def ClassDecl(iter)
 
@@ -216,6 +209,40 @@ def ClassDecl(iter)
 		puts "Unexpected end of input in ClassDecl"
 		return :epsilon
 	end
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def methodDeclSt(iter)
+
+	begin
+		errorCheck(:MethodDeclSt, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :MethodDeclSt
+
+	result.children = [methodDecl(iter), methodDeclSt(iter)]
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def classVarSt(iter)
+
+	begin
+		errorCheck(:ClassVarSt, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :ClassVarSt
+
+	result.children = [classVar(iter), classVarSt(iter)]
 
 	result.children.filter { |x| x != :epsilon}
 	result
