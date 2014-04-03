@@ -9,6 +9,30 @@ class ParseTree
 	@children
 end
 
+
+def template(iter)
+
+	begin
+		errorCheck(:Template, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :Template
+
+	#if getting any tokens
+	begin
+		#do things
+	rescue StopIteration
+		puts "Unexpected end of input in Template"
+		return :epsilon
+	end
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
 def checkFirst(symbol, token)
 	firstSet = First[symbol]
 	firstSet.each { |x|
@@ -128,6 +152,30 @@ def mainClassDecl(iter)
 	result.children.filter { |x| x != :epsilon}
 	result
 end
+
+def template(iter)
+
+	begin
+		errorCheck(:Template, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :Template
+
+	#if getting any tokens
+	begin
+		#do things
+	rescue StopIteration
+		puts "Unexpected end of input in Template"
+		return :epsilon
+	end
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
 
 def ClassDecl(iter)
 
