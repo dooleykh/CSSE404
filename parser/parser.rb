@@ -1,6 +1,8 @@
 # We can't rely on error checking to chose the rule, even when one of the
 # options is epsilon. If we do, we'll discard tokens until we can resume
 # applying the room, where we could have gotten epsilon and made a valid tree.
+
+# How do we resolve ID?
 require '../lexer/lexer.rb'
 
 First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
@@ -17,7 +19,7 @@ class ParseTree
 	end
 
 	def print_recurse(depth)
-		print '-'*depth
+		print ' '*depth
 		print @name
 		@type && print " (#{type})"
 
@@ -311,7 +313,7 @@ def classVarDeclSt(iter)
 	result
 end
 
-def ClassVarDecl(iter)
+def classVarDecl(iter)
 
 	begin
 		errorCheck(:ClassVarDecl, iter)
@@ -365,4 +367,207 @@ def methodDecl(iter)
 
 	result.children.filter { |x| x != :epsilon}
 	result
+end
+
+def formalSt(iter)
+
+	# Check for this symbol going to epsilon
+	# Only needed if that's valid
+	unless checkFirst(:FormalSt, iter.peek)
+		if checkFirst(:FormalSt, :epsilon)
+			return :epsilon
+		end
+	end
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:FormalSt, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :FormalSt
+	result.children = formalPl(iter)
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def formalPl(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:FormalPl, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :FormalPl
+	result.children = Array.new
+
+	begin
+		result.children.push formal(iter)
+		
+		if iter.peek.value == ','
+			eatThru(',', iter)
+			result.children.push formalPl(iter)
+		end
+
+	rescue StopIteration
+		# We ran out of input looking for the tokens we need for this production
+		puts "Unexpected end of input in FormalPl"
+		# This will be propogated up; we can only be here if we're at end of input.
+		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def formal(iter)
+
+	begin
+		errorCheck(:Formal, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :Formal
+
+	result.children = [type(iter), id(iter)]
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def type(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Type, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :type
+	result.children = Array.new
+
+	#if getting any tokens
+	begin
+		if iter.peek.value == 'int'
+			result.type = :int
+			eatThru('int', iter)
+		elsif iter.peek.value == 'boolean'
+			result.type = :boolean
+			eatThru('boolean', iter)
+		else
+			result.type = :id
+			result.children = [id(iter)]
+		end
+	rescue StopIteration
+		# We ran out of input looking for the tokens we need for this production
+		puts "Unexpected end of input in Type"
+		# This will be propogated up; we can only be here if we're at end of input.
+		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def stmt(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Stmt, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Stmt
+	result.children = Array.new
+
+	begin
+		if iter.peek.value == '{'
+			eatThru('{', iter)
+			result.children = [ stmtSt(iter) ]
+			eatThru('}', iter)
+
+			result.type = :block
+		
+		elsif iter.peek.value == 'if'
+			eatThru('if', iter)
+			eatThru('(', iter)
+			result.children.push expr(iter)
+			eatThru(')', iter)
+			result.children.push stmt(iter)
+			eatThru('else', iter)
+			result.children.push stmt(iter)
+
+			result.type = :if
+
+		elsif iter.peek.value == 'while'
+			eatThru('while', iter)
+			eatThru('(', iter)
+			result.children.push expr(iter)
+			eatThru(')', iter)
+			result.children.push stmt(iter)
+
+			result.type = :while
+
+		elsif checkFirst(:Type, iter.peek)
+			result.children.push type(iter)
+			result.children.push id(iter)
+			eatThru('=', iter)
+			result.children.push expr(iter)
+			eatThru(';', iter)
+
+			result.type = :var_dec
+
+		elsif iter.peek.token == :ID
+			result.children.push id(iter)
+			eatThru('=', iter)
+			result.children.push expr(iter)
+			eatThru(';', iter)
+
+			result.type = :var_asgn
+		
+		else
+			eatThru('System.out.println', iter)
+			eatThru('(', iter)
+			result.children.push expr(iter)
+			eatThru(')', iter)
+			eatThru(';', iter)
+		end
+
+	rescue StopIteration
+		# We ran out of input looking for the tokens we need for this production
+		puts "Unexpected end of input in Stmt"
+		# This will be propogated up; we can only be here if we're at end of input.
+		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+# These aren't nonterminals, but I think we should pretend they are so that we
+# can encapsulate thier values
+def id(iter)
+end
+
+def integer(iter)
 end
