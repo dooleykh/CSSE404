@@ -18,12 +18,21 @@ end
 
 def template(iter)
 
+	# Check for this symbol going to epsilon
+	unless checkFirst(:ClassDecl, iter.peek)
+		if checkFirst(:ClassDecl, :epsilon)
+			return :epsilon
+		end
+	end
+
+	# Eat symbols until we find a symbol in this symbol's first set
 	begin
 		errorCheck(:Template, iter)
 	rescue StopIteration
 		return :epsilon
 	end
 
+	# Initialize the node
 	result = ParseTree.new
 	result.name = :Template
 	result.children = Array.new
@@ -32,10 +41,13 @@ def template(iter)
 	begin
 		#do things
 	rescue StopIteration
+		# We ran out of input looking for the tokens we need for this production
 		puts "Unexpected end of input in Template"
+		# This will be propogated up; we can only be here if we're at end of input.
 		raise InvalidParse
 	end
 
+	# Eliminate children that returned empty string
 	result.children.filter { |x| x != :epsilon}
 	result
 end
@@ -100,6 +112,12 @@ def program(iter)
 end
 
 def classDeclSt(iter)
+
+	unless checkFirst(:ClassDecl, iter.peek)
+		if checkFirst(:ClassDecl, :epsilon)
+			return :epsilon
+		end
+	end
 
 	begin
 		errorCheck(:ClassDeclSt, iter)
