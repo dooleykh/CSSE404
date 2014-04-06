@@ -11,6 +11,23 @@ class ParseTree
 	@name
 	@children
 	@type #represents which rule was chosen; i.e. + or -
+
+	def print
+		self.print_recurse(0)
+	end
+
+	def print_recurse(depth)
+		print '-'*depth
+		print @name
+		@type && print " (#{type})"
+
+		if @children
+			print "\n\\"
+			@children.each { |x| x.print_recurse(depth + 1) }
+			print "/\n"
+		end
+	end
+
 end
 
 class InvalidParse < Exception
