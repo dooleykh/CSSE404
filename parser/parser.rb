@@ -19,8 +19,9 @@ end
 def template(iter)
 
 	# Check for this symbol going to epsilon
-	unless checkFirst(:ClassDecl, iter.peek)
-		if checkFirst(:ClassDecl, :epsilon)
+	# Only needed if that's valid
+	unless checkFirst(:Template, iter.peek)
+		if checkFirst(:Template, :epsilon)
 			return :epsilon
 		end
 	end
@@ -181,6 +182,12 @@ end
 
 def stmtSt(iter)
 
+	unless checkFirst(:Stmt, iter.peek)
+		if checkFirst(:Stmt, :epsilon)
+			return :epsilon
+		end
+	end
+
 	begin
 		errorCheck(:StmtSt, iter)
 	rescue StopIteration
@@ -243,6 +250,12 @@ end
 
 def methodDeclSt(iter)
 
+	unless checkFirst(:MethodDecl, iter.peek)
+		if checkFirst(:MethodDecl, :epsilon)
+			return :epsilon
+		end
+	end
+
 	begin
 		errorCheck(:MethodDeclSt, iter)
 	rescue StopIteration
@@ -258,16 +271,22 @@ def methodDeclSt(iter)
 	result
 end
 
-def classVarSt(iter)
+def classVarDeclSt(iter)
+
+	unless checkFirst(:ClassVarDecl, iter.peek)
+		if checkFirst(:ClassVarDecl, :epsilon)
+			return :epsilon
+		end
+	end
 
 	begin
-		errorCheck(:ClassVarSt, iter)
+		errorCheck(:ClassVarDeclSt, iter)
 	rescue StopIteration
 		return :epsilon
 	end
 
 	result = ParseTree.new
-	result.name = :ClassVarSt
+	result.name = :ClassVarDeclSt
 
 	result.children = [classVar(iter), classVarSt(iter)]
 
