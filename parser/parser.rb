@@ -1,3 +1,6 @@
+# We can't rely on error checking to chose the rule, even when one of the
+# options is epsilon. If we do, we'll discard tokens until we can resume
+# applying the room, where we could have gotten epsilon and made a valid tree.
 require '../lexer/lexer.rb'
 
 First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
@@ -7,6 +10,7 @@ First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["
 class ParseTree
 	@name
 	@children
+	@type #represents which rule was chosen; i.e. + or -
 end
 
 class InvalidParse < Exception
@@ -22,6 +26,7 @@ def template(iter)
 
 	result = ParseTree.new
 	result.name = :Template
+	result.children = Array.new
 
 	#if getting any tokens
 	begin
@@ -121,6 +126,7 @@ def mainClassDecl(iter)
 
 	result = ParseTree.new
 	result.name = :MainClassDecl
+	result.children = Array.new
 
 	begin
 		eatThru("class", iter)
@@ -182,6 +188,7 @@ def ClassDecl(iter)
 
 	result = ParseTree.new
 	result.name = :ClassDecl
+	result.children = Array.new
 
 	begin
 
@@ -245,6 +252,62 @@ def classVarSt(iter)
 	result.name = :ClassVarSt
 
 	result.children = [classVar(iter), classVarSt(iter)]
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def ClassVarDecl(iter)
+
+	begin
+		errorCheck(:ClassVarDecl, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :ClassVarDecl
+
+	result.children = [type(iter), id(iter)]
+
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def methodDecl(iter)
+
+	begin
+		errorCheck(:methodDecl, iter)
+	rescue StopIteration
+		return :epsilon
+	end
+
+	result = ParseTree.new
+	result.name = :methodDecl
+	result.children = Array.new
+
+	begin
+		eatThru("public", iter)
+
+		result.children.push type(iter)
+		result.children.push id(iter)
+
+		eatThru("(", iter)
+
+		result.children.push formalSt(iter)
+
+		eatThru(")", iter)
+		eatThru("{", iter)
+
+		result.children.push stmtSt(iter)
+
+		eatThru("return", iter)
+		eatThru("}")
+
+	rescue StopIteration
+		puts "Unexpected end of input in MethodDecl"
+		raise InvalidParse
+	end
 
 	result.children.filter { |x| x != :epsilon}
 	result
