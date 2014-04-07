@@ -501,9 +501,12 @@ def type(iter)
 		elsif iter.peek.value == 'boolean'
 			result.type = :boolean
 			eatThru('boolean', iter)
-		else
+		elsif
 			result.type = :id
 			result.children = [id(iter)]
+		else
+			puts "Malformed type"
+			raise InvalidParse
 		end
 	rescue StopIteration
 		# We ran out of input looking for the tokens we need for this production
@@ -577,12 +580,16 @@ def stmt(iter)
 
 			result.type = :var_asgn
 		
-		else
+		elsif
 			eatThru('System.out.println', iter)
 			eatThru('(', iter)
 			result.children.push expr(iter)
 			eatThru(')', iter)
 			eatThru(';', iter)
+
+		else
+			puts "Malformed Stmt"
+			raise InvalidParse
 		end
 
 	rescue StopIteration
@@ -933,10 +940,94 @@ def expr8Pl(iter)
 	result.children.filter { |x| x != :epsilon}
 	result
 end
+
+def expr9(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr9, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr9"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr9
+	result.children = Array.new
+
+	begin
+		if iter.peek.value == 'new'
+			eatThru('new', iter)
+			result.children.push id(iter)
+			eatThru('(', iter)
+			eatThru(')', iter)
+			result.type = :new
+		elsif iter.peek.token == :ID
+			result.children.push id(iter)
+			result.type = :id
+		elsif iter.peek.value == 'this'
+			eatThru('this', iter)
+			result.type = :this
+		elsif iter.peek.token == :Integer
+			result.children.push integer(iter)
+			result.type = :integer
+		elsif iter.peek.value == 'null'
+			eatThru('null', iter)
+			result.type = :null
+		elsif iter.peek.value == 'true'
+			eatThru('true', iter)
+			result.type = :true
+		elsif iter.peek.value == 'false'
+			eatThru('false', iter)
+			result.type = :false
+		elsif iter.peek.value == '('
+			eatThru('(', iter)
+			result.children.push expr(iter)
+			eatThru(')', iter)
+		else
+			puts "Malformed Expr9"
+			raise InvalidParse
+		end
+		#do things
+	rescue StopIteration
+		# We ran out of input looking for the tokens we need for this production
+		puts "Unexpected end of input in Template"
+		# This will be propogated up; we can only be here if we're at end of input.
+		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
 # These aren't nonterminals, but I think we should pretend they are so that we
 # can encapsulate thier values
 def id(iter)
+	until iter.peek.token == :ID
+		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", expecting id"
+		iter.next
+	end
+
+	result = ParseNode.new
+	result.type = :id
+	result.value = iter.next.value
+	
+	result
 end
 
 def integer(iter)
+	until iter.peek.token == :Integer
+		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", expecting integer"
+		iter.next
+	end
+
+	result = ParseNode.new
+	result.type = :integer
+	result.value = iter.next.value
+	
+	result
 end
+
+
