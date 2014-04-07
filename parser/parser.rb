@@ -7,14 +7,15 @@ First = {
   :MainClassDecl => ["class"],
   :StmtSt => [:epsilon, "{", "if", "while", "System.out.println", :ID, "int", "boolean"],
   :ClassDecl => ["class"], :MethodDeclSt => [:epsilon, "public"],
-  :MethodDeclSt => [:epsilon, "public"]
-  :ClassVarDeclSt => [:epsilon, "int", "boolean", :ID], :MethodDecl => ["public"],
-  :ClassVarDecl => ["int", "boolean", :ID]
-  :MethodDecl => ["public"]
-  :FormalSt => [:epsilon, "int", "boolean" :ID],
+  :MethodDeclSt => [:epsilon, "public"],
+  :ClassVarDeclSt => [:epsilon, "int", "boolean", :ID],
+  :MethodDecl => ["public"],
+  :ClassVarDecl => ["int", "boolean", :ID],
+  :MethodDecl => ["public"],
+  :FormalSt => [:epsilon, "int", "boolean", :ID],
   :FormalPl => ["int", "boolean", :ID],
   :Formal => ["int", "boolean", :ID],
-  :Type => ["int", "boolean", :ID]
+  :Type => ["int", "boolean", :ID],
   :Stmt => ["{", "if", "while", "System.out.println", :ID, "int", "boolean"],
   :Expr => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
   :Expr2 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
@@ -34,17 +35,21 @@ class ParseTree
 	@children
 	@type #represents which rule was chosen; i.e. + or -
 
-	def print
+  attr_accessor :name, :children, :type
+	def prin
 		self.print_recurse(0, false)
 	end
 
 	def print_recurse(depth, sameline)
+    #puts "depth: #{depth}"
 		unless sameline
 			print ' '*depth
 		end
 
 		print @name
-		@type && print " (#{type})"
+    if @type
+      print " (#{type})"
+    end
 
 		if @children
 			if @children.size == 1
@@ -52,17 +57,21 @@ class ParseTree
 				@children[0].print_recurse(depth, true)
 
 			else
-				print "\n\\"
-				@children.each { |x| x.print_recurse(depth + 1, false) }
-				print "/\n"
+        puts
+				@children.each { |x|
+          x.print_recurse(depth + 1, false) }
 			end
-		end
+    else
+      puts
+    end
 	end
 
 end
 
 # for ints and ids
 class ParseNode < ParseTree
+  @value
+  attr_accessor :value
 	def print_recurse(depth, sameline)
 
 		unless sameline
@@ -70,7 +79,9 @@ class ParseNode < ParseTree
 		end
 
 		print @name
-		@type && print " (#{type})"
+    if @type
+      puts " (#{@type}): #{@value}"
+    end
 
 	end
 end
@@ -112,7 +123,7 @@ def template(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -147,7 +158,7 @@ def eatThru(symbol, iter)
 		elsif iter.peek.token == symbol
 			break
 		else
-			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\""
+			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", looking for #{symbol}"
 			iter.next
 		end
 	end
@@ -169,7 +180,7 @@ def program(iter)
 
 	result.name = :Program
 	result.children = [mainClassDecl(iter), classDeclSt(iter)]
-	result.children.filter! { |x| x != :epsilon }
+	result.children.select! { |x| x != :epsilon }
 
 	result
 
@@ -177,10 +188,12 @@ end
 
 def classDeclSt(iter)
 
-	unless checkFirst(:ClassDecl, iter.peek)
-		if checkFirst(:ClassDecl, :epsilon)
-			return :epsilon
-		end
+  begin
+    unless checkFirst(:ClassDecl, iter.peek)
+      return :epsilo
+    end
+  rescue StopIteration
+    return :epsilon
 	end
 
 	begin
@@ -194,7 +207,7 @@ def classDeclSt(iter)
 	result.name = :ClassDeclSt
 
 	result.children = [classDecl(iter), classDeclSt(iter)]
-	result.children.filter! { |x| x != :epsilon }
+	result.children.select! { |x| x != :epsilon }
 
 	result
 end
@@ -202,7 +215,7 @@ end
 def mainClassDecl(iter)
 
 	begin
-		errorCheck(:mainClassDecl, iter)
+		errorCheck(:MainClassDecl, iter)
 	rescue StopIteration
 		puts "Unexpected end of input in MainClassDecl"
 		raise InvalidParse
@@ -216,41 +229,39 @@ def mainClassDecl(iter)
 		eatThru("class", iter)
 		result.children.push id(iter)
 
-		eatThru("{")
-		eatThru("public")
-		eatThru("static")
-		eatThru("void")
-		eatThru("main")
-		eatThru("(")
-		eatThru("String")
-		eatThru("[")
-		eatThru("]")
+		eatThru("{", iter)
+		eatThru("public", iter)
+		eatThru("static", iter)
+		eatThru("void", iter)
+		eatThru("main", iter)
+		eatThru("(", iter)
+		eatThru("String", iter)
+		eatThru("[", iter)
+		eatThru("]", iter)
 
-		result.children.push id(iter)
-
-		eatThru(")")
-		eatThru("{")
+    result.children.push id(iter)
+    
+		eatThru(")", iter)
+		eatThru("{", iter)
 
 		result.children.push stmtSt(iter)
 
-		eatThru("}")
-		eatThru("}")
+		eatThru("}", iter)
+		eatThru("}", iter)
 
 	rescue StopIteration
 		puts "Unexpected end of input in ClassDecl"
 		raise InvalidParse
 	end
 	
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
 def stmtSt(iter)
 
 	unless checkFirst(:Stmt, iter.peek)
-		if checkFirst(:Stmt, :epsilon)
-			return :epsilon
-		end
+    return :epsilon
 	end
 
 	begin
@@ -265,11 +276,11 @@ def stmtSt(iter)
 
 	result.children = [stmt(iter), stmtSt(iter)]
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
-def ClassDecl(iter)
+def classDecl(iter)
 
 	begin
 		errorCheck(:ClassDecl, iter)
@@ -311,7 +322,7 @@ def ClassDecl(iter)
 		raise InvalidParse
 	end
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -335,7 +346,7 @@ def methodDeclSt(iter)
 
 	result.children = [methodDecl(iter), methodDeclSt(iter)]
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -359,7 +370,7 @@ def classVarDeclSt(iter)
 
 	result.children = [classVar(iter), classVarSt(iter)]
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -377,7 +388,7 @@ def classVarDecl(iter)
 
 	result.children = [type(iter), id(iter)]
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -417,7 +428,7 @@ def methodDecl(iter)
 		raise InvalidParse
 	end
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -445,7 +456,7 @@ def formalSt(iter)
 	result.children = formalPl(iter)
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -480,7 +491,7 @@ def formalPl(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -498,7 +509,7 @@ def formal(iter)
 
 	result.children = [type(iter), id(iter)]
 
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -540,7 +551,7 @@ def type(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -624,7 +635,7 @@ def stmt(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -653,7 +664,7 @@ def expr(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -682,7 +693,7 @@ def expr2(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -716,7 +727,7 @@ def expr3(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -758,7 +769,7 @@ def expr4(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -792,7 +803,7 @@ def expr5(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -826,7 +837,7 @@ def expr6(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -854,6 +865,9 @@ def expr7(iter)
 			eatThru('!', iter)
 			result.type = :!
 			result.children.push expr7(iter)
+    else
+      result.type = :none
+      result.children.push expr8(iter)
 		end
 	rescue
 		puts "Unexpected end of input in Expr7"
@@ -861,7 +875,7 @@ def expr7(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -902,7 +916,7 @@ def expr8(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -932,7 +946,7 @@ def expr8St(iter)
 	result.children.push expr8Pl(iter)
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -961,7 +975,7 @@ def expr8Pl(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -1022,7 +1036,7 @@ def expr9(iter)
 	end
 
 	# Eliminate children that returned empty string
-	result.children.filter { |x| x != :epsilon}
+	result.children.select! { |x| x != :epsilon}
 	result
 end
 
@@ -1037,8 +1051,8 @@ def id(iter)
 	result = ParseNode.new
 	result.type = :id
 	result.value = iter.next.value
-	
-	result
+
+  result
 end
 
 def integer(iter)
@@ -1054,4 +1068,8 @@ def integer(iter)
 	result
 end
 
-
+if __FILE__ == $PROGRAM_NAME
+  source = File.absolute_path(ARGF.filename)
+  iter = Lexer.get_words(source)
+  program(iter).prin
+end
