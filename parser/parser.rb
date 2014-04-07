@@ -190,7 +190,7 @@ def classDeclSt(iter)
 
   begin
     unless checkFirst(:ClassDecl, iter.peek)
-      return :epsilo
+      return :epsilon
     end
   rescue StopIteration
     return :epsilon
@@ -260,9 +260,15 @@ end
 
 def stmtSt(iter)
 
-	unless checkFirst(:Stmt, iter.peek)
+  begin
+    unless checkFirst(:StmtSt, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
     return :epsilon
 	end
+
+
 
 	begin
 		errorCheck(:StmtSt, iter)
@@ -328,10 +334,12 @@ end
 
 def methodDeclSt(iter)
 
-	unless checkFirst(:MethodDecl, iter.peek)
-		if checkFirst(:MethodDecl, :epsilon)
-			return :epsilon
-		end
+  begin
+    unless checkFirst(:MethodDeclSt, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
+    return :epsilon
 	end
 
 	begin
@@ -352,10 +360,12 @@ end
 
 def classVarDeclSt(iter)
 
-	unless checkFirst(:ClassVarDecl, iter.peek)
-		if checkFirst(:ClassVarDecl, :epsilon)
-			return :epsilon
-		end
+  begin
+    unless checkFirst(:ClassVarDeclSt, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
+    return :epsilon
 	end
 
 	begin
@@ -434,12 +444,12 @@ end
 
 def formalSt(iter)
 
-	# Check for this symbol going to epsilon
-	# Only needed if that's valid
-	unless checkFirst(:FormalSt, iter.peek)
-		if checkFirst(:FormalSt, :epsilon)
-			return :epsilon
-		end
+  begin
+    unless checkFirst(:FormalSt, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
+    return :epsilon
 	end
 
 	# Eat symbols until we find a symbol in this symbol's first set
@@ -922,12 +932,12 @@ end
 
 def expr8St(iter)
 
-	# Check for this symbol going to epsilon
-	# Only needed if that's valid
-	unless checkFirst(:Expr8St, iter.peek)
-		if checkFirst(:Expr8St, :epsilon)
-			return :epsilon
-		end
+  begin
+    unless checkFirst(:Expr8St, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
+    return :epsilon
 	end
 
 	# Eat symbols until we find a symbol in this symbol's first set
