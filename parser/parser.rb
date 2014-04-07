@@ -1,8 +1,3 @@
-# We can't rely on error checking to chose the rule, even when one of the
-# options is epsilon. If we do, we'll discard tokens until we can resume
-# applying the room, where we could have gotten epsilon and made a valid tree.
-
-# How do we resolve ID?
 require '../lexer/lexer.rb'
 
 First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
@@ -15,21 +10,44 @@ class ParseTree
 	@type #represents which rule was chosen; i.e. + or -
 
 	def print
-		self.print_recurse(0)
+		self.print_recurse(0, false)
 	end
 
-	def print_recurse(depth)
-		print ' '*depth
+	def print_recurse(depth, sameline)
+		unless sameline
+			print ' '*depth
+		end
+
 		print @name
 		@type && print " (#{type})"
 
 		if @children
-			print "\n\\"
-			@children.each { |x| x.print_recurse(depth + 1) }
-			print "/\n"
+			if @children.size == 1
+				print " -> "
+				@children[0].print_recurse(depth, true)
+
+			else
+				print "\n\\"
+				@children.each { |x| x.print_recurse(depth + 1, false) }
+				print "/\n"
+			end
 		end
 	end
 
+end
+
+# for ints and ids
+class ParseNode < ParseTree
+	def print_recurse(depth, sameline)
+
+		unless sameline
+			print ' '*depth
+		end
+
+		print @name
+		@type && print " (#{type})"
+
+	end
 end
 
 class InvalidParse < Exception
@@ -49,7 +67,8 @@ def template(iter)
 	begin
 		errorCheck(:Template, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in Template"
+		raise InvalidParse
 	end
 
 	# Initialize the node
@@ -117,8 +136,8 @@ def program(iter)
 	begin
 		errorCheck(:Program, iter)
 	rescue StopIteration
-		puts "Unexpected end of input"
-		return :epsilon
+		puts "Unexpected end of input in Program"
+		raise InvalidParse
 	end
 	
 	result = ParseTree.new
@@ -142,7 +161,8 @@ def classDeclSt(iter)
 	begin
 		errorCheck(:ClassDeclSt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in ClassDeclSt"
+		raise InvalidParse
 	end
 	
 	result = ParseTree.new
@@ -159,7 +179,8 @@ def mainClassDecl(iter)
 	begin
 		errorCheck(:mainClassDecl, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in MainClassDecl"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -210,7 +231,8 @@ def stmtSt(iter)
 	begin
 		errorCheck(:StmtSt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in StmtSt"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -227,7 +249,8 @@ def ClassDecl(iter)
 	begin
 		errorCheck(:ClassDecl, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in ClassDecl"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -278,7 +301,8 @@ def methodDeclSt(iter)
 	begin
 		errorCheck(:MethodDeclSt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in MethodDeclSt"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -301,7 +325,8 @@ def classVarDeclSt(iter)
 	begin
 		errorCheck(:ClassVarDeclSt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in ClassVarDeclSt"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -318,7 +343,8 @@ def classVarDecl(iter)
 	begin
 		errorCheck(:ClassVarDecl, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in ClassVarDecl"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -335,7 +361,8 @@ def methodDecl(iter)
 	begin
 		errorCheck(:methodDecl, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in MethodDecl"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -383,7 +410,8 @@ def formalSt(iter)
 	begin
 		errorCheck(:FormalSt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in FormalSt"
+		raise InvalidParse
 	end
 
 	# Initialize the node
@@ -402,7 +430,8 @@ def formalPl(iter)
 	begin
 		errorCheck(:FormalPl, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in FormalPl"
+		raise InvalidParse
 	end
 
 	# Initialize the node
@@ -435,7 +464,8 @@ def formal(iter)
 	begin
 		errorCheck(:Formal, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in Formal"
+		raise InvalidParse
 	end
 
 	result = ParseTree.new
@@ -453,7 +483,8 @@ def type(iter)
 	begin
 		errorCheck(:Type, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in Type"
+		raise InvalidParse
 	end
 
 	# Initialize the node
@@ -491,7 +522,8 @@ def stmt(iter)
 	begin
 		errorCheck(:Stmt, iter)
 	rescue StopIteration
-		return :epsilon
+		puts "Unexpected end of input in Stmt"
+		raise InvalidParse
 	end
 
 	# Initialize the node
@@ -557,6 +589,35 @@ def stmt(iter)
 		puts "Unexpected end of input in Stmt"
 		# This will be propogated up; we can only be here if we're at end of input.
 		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr
+	result.children = Array.new
+
+	result.children.push expr2(iter)
+	begin
+		if iter.peek.value == '||'
+			eatThru('||', iter)
+			result.children.push expr(iter)
+		end
+	rescue
 	end
 
 	# Eliminate children that returned empty string
