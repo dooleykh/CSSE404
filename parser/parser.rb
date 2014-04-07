@@ -1,3 +1,4 @@
+# Done through Expr8Pl. Need to add expr9, integer, id (see note at bottom on those) and populate first sets
 require '../lexer/lexer.rb'
 
 First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
@@ -625,6 +626,313 @@ def expr(iter)
 	result
 end
 
+def expr2(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr2, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr2"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr2
+	result.children = Array.new
+
+	result.children.push expr3(iter)
+	begin
+		if iter.peek.value == '&&'
+			eatThru('&&', iter)
+			result.children.push expr2(iter)
+		end
+	rescue
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr3(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr3, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr3"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr3
+	result.children = Array.new
+
+	result.children.push expr4(iter)
+	begin
+		if iter.peek.value == '=='
+			eatThru('==', iter)
+			result.type = :eq
+			result.children.push expr3(iter)
+		elsif iter.peek.value == '!='
+			eatThru('!=', iter)
+			result.type = :neq
+			result.children.push expr3(iter)
+		end
+	rescue
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr4(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr4, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr4"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr4
+	result.children = Array.new
+
+	result.children.push expr5(iter)
+	begin
+	if iter.peek.value == '<'
+			eatThru('<', iter)
+			result.type = :<
+			result.children.push expr4(iter)
+		elsif iter.peek.value == '>'
+			eatThru('>', iter)
+			result.type = :>
+			result.children.push expr4(iter)
+		elsif iter.peek.value == '<='
+			eatThru('<=', iter)
+			result.type = :<=
+			result.children.push expr4(iter)
+		elsif iter.peek.value == '>='
+			eatThru('>=', iter)
+			result.type = :>=
+			result.children.push expr4(iter)
+		end
+	rescue
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr5(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr5, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr5"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr5
+	result.children = Array.new
+
+	result.children.push expr6(iter)
+	begin
+		if iter.peek.value == '+'
+			eatThru('+', iter)
+			result.type = :+
+			result.children.push expr5(iter)
+		elsif iter.peek.value == '-'
+			eatThru('-', iter)
+			result.type = :-
+			result.children.push expr5(iter)
+		end
+	rescue
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr6(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr6, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr6"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr6
+	result.children = Array.new
+
+	result.children.push expr7(iter)
+	begin
+		if iter.peek.value == '*'
+			eatThru('*', iter)
+			result.type = :*
+			result.children.push expr6(iter)
+		elsif iter.peek.value == '/'
+			eatThru('/', iter)
+			result.type = :/
+			result.children.push expr6(iter)
+		end
+	rescue
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr7(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr7, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr7"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr7
+	result.children = Array.new
+
+	begin
+		if iter.peek.value == '-'
+			eatThru('-', iter)
+			result.type = :-
+			result.children.push expr7(iter)
+		elsif iter.peek.value == '!'
+			eatThru('!', iter)
+			result.type = :!
+			result.children.push expr7(iter)
+		end
+	rescue
+		puts "Unexpected end of input in Expr7"
+		raise InvalidParse
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr8(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr8, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr8"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr8
+	result.children = Array.new
+
+	result.children.push expr9(iter)
+
+	begin
+		if iter.peek.value == '.'
+			begin
+				eatThru('.', iter)
+				result.children.push id(iter)
+				eatThru('(', iter)
+				result.children.push expr8St(iter)
+				eatThru(')', iter)
+			rescue StopIteration
+				# We ran out of input looking for the tokens we need for this production
+				puts "Unexpected end of input in Template"
+				# This will be propogated up; we can only be here if we're at end of input.
+				raise InvalidParse
+			end
+		end
+	#this one corresponds to there being no ., so its fine
+	rescue StopIteration
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr8St(iter)
+
+	# Check for this symbol going to epsilon
+	# Only needed if that's valid
+	unless checkFirst(:Expr8St, iter.peek)
+		if checkFirst(:Expr8St, :epsilon)
+			return :epsilon
+		end
+	end
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:Expr8St, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in Expr8St"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :Expr8St
+	result.children = Array.new
+
+	result.children.push expr8Pl(iter)
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
+
+def expr8Pl(iter)
+
+	# Eat symbols until we find a symbol in this symbol's first set
+	begin
+		errorCheck(:expr8Pl, iter)
+	rescue StopIteration
+		puts "Unexpected end of input in expr8Pl"
+		raise InvalidParse
+	end
+
+	# Initialize the node
+	result = ParseTree.new
+	result.name = :expr8Pl
+	result.children = Array.new
+
+	result.push expr(iter)
+	begin
+		if iter.peek.value == ','
+			eatThru(',', iter)
+			result.children.push expr8Pl(iter)
+		end
+	rescue StopIteration
+	end
+
+	# Eliminate children that returned empty string
+	result.children.filter { |x| x != :epsilon}
+	result
+end
 # These aren't nonterminals, but I think we should pretend they are so that we
 # can encapsulate thier values
 def id(iter)
