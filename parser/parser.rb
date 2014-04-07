@@ -1,8 +1,32 @@
 # Done through Expr8Pl. Need to add expr9, integer, id (see note at bottom on those) and populate first sets
 require '../lexer/lexer.rb'
 
-First = { :Program => ["class"], :MainClassDecl => ["class"], :ClassDeclSt => ["class", :epsilon],
-		  :StmtSt => [:epsilon, "{", "if", "while", "System.out.println", :ID, "int", "boolean"]
+First = {
+  :Program => ["class"],
+  :ClassDeclSt => ["class", :epsilon],
+  :MainClassDecl => ["class"],
+  :StmtSt => [:epsilon, "{", "if", "while", "System.out.println", :ID, "int", "boolean"],
+  :ClassDecl => ["class"], :MethodDeclSt => [:epsilon, "public"],
+  :MethodDeclSt => [:epsilon, "public"]
+  :ClassVarDeclSt => [:epsilon, "int", "boolean", :ID], :MethodDecl => ["public"],
+  :ClassVarDecl => ["int", "boolean", :ID]
+  :MethodDecl => ["public"]
+  :FormalSt => [:epsilon, "int", "boolean" :ID],
+  :FormalPl => ["int", "boolean", :ID],
+  :Formal => ["int", "boolean", :ID],
+  :Type => ["int", "boolean", :ID]
+  :Stmt => ["{", "if", "while", "System.out.println", :ID, "int", "boolean"],
+  :Expr => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr2 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr3 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr4 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr5 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr6 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr7 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr8 => ["new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr8St => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr8Pl => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr9 => ["new", :ID, "this", :Integer, "null", "true", "false", "("]
 }
 
 class ParseTree
