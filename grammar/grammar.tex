@@ -106,9 +106,16 @@ main(String$[]$ ID )\{ Stmt* \}\} \\
 	&$|$& Expr8 \\
 	\\
 
-	Expr8 & $\rightarrow$ & Expr9 . ID ( Expr8* ) \\
-	&$|$& Expr9 \\
+	Expr8 & $\rightarrow$ & Expr9 Expr8' \\
 	\\
+
+	Expr8' & $\rightarrow$ & . ID ( Expr8* ) \\
+	&$|$& $\epsilon$ \\
+	\\
+	
+	%Expr8 & $\rightarrow$ & Expr9 . ID ( Expr8* ) \\
+	%&$|$& Expr9 \\
+	%\\
 
 	Expr8* & $\rightarrow$ & Expr8+ \\
   	& $|$ & $\epsilon$ \\
