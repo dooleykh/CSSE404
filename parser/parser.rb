@@ -158,7 +158,7 @@ def eatThru(symbol, iter)
 		elsif iter.peek.token == symbol
 			break
 		else
-			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", looking for #{symbol}"
+			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", looking for #{symbol} in caller #{caller[0]}"
 			iter.next
 		end
 	end
@@ -405,14 +405,14 @@ end
 def methodDecl(iter)
 
 	begin
-		errorCheck(:methodDecl, iter)
+		errorCheck(:MethodDecl, iter)
 	rescue StopIteration
 		puts "Unexpected end of input in MethodDecl"
 		raise InvalidParse
 	end
 
 	result = ParseTree.new
-	result.name = :methodDecl
+	result.name = :MethodDecl
 	result.children = Array.new
 
 	begin
@@ -431,7 +431,9 @@ def methodDecl(iter)
 		result.children.push stmtSt(iter)
 
 		eatThru("return", iter)
-		eatThru("}")
+    result.children.push expr(iter)
+    eatThru(";", iter)
+		eatThru("}", iter)
 
 	rescue StopIteration
 		puts "Unexpected end of input in MethodDecl"
@@ -463,7 +465,7 @@ def formalSt(iter)
 	# Initialize the node
 	result = ParseTree.new
 	result.name = :FormalSt
-	result.children = formalPl(iter)
+	result.children = [formalPl(iter)]
 
 	# Eliminate children that returned empty string
 	result.children.select! { |x| x != :epsilon}
@@ -609,6 +611,7 @@ def stmt(iter)
 			result.type = :while
 
 		elsif checkFirst(:Type, iter.peek)
+      puts ":HHHFJFEHUJ"
 			result.children.push type(iter)
 			result.children.push id(iter)
 			eatThru('=', iter)
@@ -625,7 +628,7 @@ def stmt(iter)
 
 			result.type = :var_asgn
 		
-		elsif
+		elsif iter.peek.value == "System.out.println"
 			eatThru('System.out.println', iter)
 			eatThru('(', iter)
 			result.children.push expr(iter)
