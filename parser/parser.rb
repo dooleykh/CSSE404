@@ -26,6 +26,7 @@ First = {
   :Expr7 => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
   :Expr8 => ["new", :ID, "this", :Integer, "null", "true", "false", "("],
   :Expr8St => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
+  :Expr8Pr => ["."],
   :Expr8Pl => ["-", "!", "new", :ID, "this", :Integer, "null", "true", "false", "("],
   :Expr9 => ["new", :ID, "this", :Integer, "null", "true", "false", "("]
 }
@@ -146,7 +147,7 @@ end
 
 def errorCheck(symbol, iter)
 	until checkFirst(symbol, iter.peek)
-		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", cannot start #{symbol}"
+		puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\" on line #{iter.peek.line_num}, cannot start #{symbol}"
 		iter.next
 	end
 end
@@ -158,7 +159,7 @@ def eatThru(symbol, iter)
 		elsif iter.peek.token == symbol
 			break
 		else
-			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", looking for #{symbol} in caller #{caller[0]}"
+			puts "UNHAPPY: ignored #{iter.peek.token}: \"#{iter.peek.value}\", looking for #{symbol} around #{iter.peek.line_num} in caller #{caller[0]}"
 			iter.next
 		end
 	end
@@ -268,8 +269,6 @@ def stmtSt(iter)
     return :epsilon
 	end
 
-
-
 	begin
 		errorCheck(:StmtSt, iter)
 	rescue StopIteration
@@ -361,7 +360,7 @@ end
 def classVarDeclSt(iter)
 
   begin
-    unless checkFirst(:ClassVarDeclSt, iter.peek)
+    unless checkFirst(:ClassVarDecl, iter.peek)
       return :epsilon
     end
   rescue StopIteration
@@ -378,7 +377,7 @@ def classVarDeclSt(iter)
 	result = ParseTree.new
 	result.name = :ClassVarDeclSt
 
-	result.children = [classVar(iter), classVarSt(iter)]
+	result.children = [classVarDecl(iter), classVarDeclSt(iter)]
 
 	result.children.select! { |x| x != :epsilon}
 	result
@@ -397,6 +396,7 @@ def classVarDecl(iter)
 	result.name = :ClassVarDecl
 
 	result.children = [type(iter), id(iter)]
+  eatThru(";", iter)
 
 	result.children.select! { |x| x != :epsilon}
 	result
@@ -610,30 +610,39 @@ def stmt(iter)
 
 			result.type = :while
 
-		elsif checkFirst(:Type, iter.peek)
-      puts ":HHHFJFEHUJ"
-			result.children.push type(iter)
-			result.children.push id(iter)
-			eatThru('=', iter)
-			result.children.push expr(iter)
-			eatThru(';', iter)
+    elsif iter.peek.token == :ID
+      result.children.push id(iter)
 
-			result.type = :var_dec
+      if iter.peek.value == "="
+        eatThru("=", iter)
+        result.children.push expr(iter)
+        eatThru(";", iter)
+        result.type = :var_asgn
+      elsif iter.peek.token == :ID
+        result.children.push id(iter)
+        eatThru("=", iter)
+        result.children.push expr(iter)
+        eatThru(";", iter)
+        result.type = :var_dec
+      else
+        #Error
+      end
 
-		elsif iter.peek.token == :ID
-			result.children.push id(iter)
-			eatThru('=', iter)
-			result.children.push expr(iter)
-			eatThru(';', iter)
-
-			result.type = :var_asgn
-		
+    elsif iter.peek.value == "boolean" or iter.peek.value == "int"
+      result.children.push type(iter)
+      result.children.push id(iter)
+      eatThru("=", iter)
+      result.children.push expr(iter)
+      eatThru(";", iter)
+      result.type = :var_dec
+      
 		elsif iter.peek.value == "System.out.println"
 			eatThru('System.out.println', iter)
 			eatThru('(', iter)
 			result.children.push expr(iter)
 			eatThru(')', iter)
 			eatThru(';', iter)
+      result.type = :print
 
 		else
 			puts "Malformed Stmt"
@@ -879,10 +888,10 @@ def expr7(iter)
 			result.type = :!
 			result.children.push expr7(iter)
     else
-      result.type = :none
       result.children.push expr8(iter)
 		end
-	rescue
+	rescue StopIteration
+    puts "Value: #{iter.peek.value}"
 		puts "Unexpected end of input in Expr7"
 		raise InvalidParse
 	end
@@ -908,29 +917,39 @@ def expr8(iter)
 	result.children = Array.new
 
 	result.children.push expr9(iter)
-
-	begin
-		if iter.peek.value == '.'
-			begin
-				eatThru('.', iter)
-				result.children.push id(iter)
-				eatThru('(', iter)
-				result.children.push expr8St(iter)
-				eatThru(')', iter)
-			rescue StopIteration
-				# We ran out of input looking for the tokens we need for this production
-				puts "Unexpected end of input in Template"
-				# This will be propogated up; we can only be here if we're at end of input.
-				raise InvalidParse
-			end
-		end
-	#this one corresponds to there being no ., so its fine
-	rescue StopIteration
-	end
+  result.children.push expr8Pr(iter)
 
 	# Eliminate children that returned empty string
 	result.children.select! { |x| x != :epsilon}
 	result
+end
+
+def expr8Pr(iter)
+  begin
+    unless checkFirst(:Expr8Pr, iter.peek)
+      return :epsilon
+    end
+  rescue StopIteration
+    return :epsilon
+  end
+
+  begin
+    errorCheck(:Expr8Pr, iter)
+  rescue StopIteration
+		puts "Unexpected end of input in Expr8Pr"
+		raise InvalidParse
+  end
+
+  result = ParseTree.new
+  result.children = []
+  eatThru(".", iter)
+  result.children.push id(iter)
+  eatThru("(", iter)
+  result.children.push expr8St(iter)
+  eatThru(")", iter)
+  result.children.push expr8Pr(iter)
+  result.children.select! { |x| x != :epsilon }
+  result
 end
 
 def expr8St(iter)
@@ -967,7 +986,7 @@ def expr8Pl(iter)
 
 	# Eat symbols until we find a symbol in this symbol's first set
 	begin
-		errorCheck(:expr8Pl, iter)
+		errorCheck(:Expr8Pl, iter)
 	rescue StopIteration
 		puts "Unexpected end of input in expr8Pl"
 		raise InvalidParse
@@ -975,10 +994,10 @@ def expr8Pl(iter)
 
 	# Initialize the node
 	result = ParseTree.new
-	result.name = :expr8Pl
+	result.name = :Expr8Pl
 	result.children = Array.new
 
-	result.push expr(iter)
+	result.children.push expr(iter)
 	begin
 		if iter.peek.value == ','
 			eatThru(',', iter)

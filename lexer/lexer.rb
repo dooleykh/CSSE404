@@ -1,6 +1,6 @@
 module Lexer
 
-  Word = Struct.new(:token, :value)
+  Word = Struct.new(:token, :value, :line_num)
 
   Token_classes =
     {
@@ -54,13 +54,13 @@ module Lexer
             if l =~ Token_classes[x]
               if x == :ID
                 #We've matched an ID and may have to merge two pieces (if ID is longer than 1 char)
-                enum << Word.new(x, $1.strip + $2.strip)
+                enum << Word.new(x, $1.strip + $2.strip, line_num + 1)
                 l = $3.strip
               elsif x == :ReservedWord
-                enum << Word.new(x, $1.strip)
+                enum << Word.new(x, $1.strip, line_num + 1)
                 l = $3.strip #Use $3 due to Regex Lookahead
               else
-                enum << Word.new(x, $1.strip)
+                enum << Word.new(x, $1.strip, line_num + 1)
                 l = $2.strip
               end
               break
@@ -68,15 +68,14 @@ module Lexer
           }
           if l == l2
             #No symbols matched. Consume one character and continue tokenizing (potential errors)
+            enum << Word.new(:UnknownToken, l[0], line_num + 1)
             l = l[1..-1].strip
-            #We could add an error to the stream
-            #enum << Word.new(:UnknownToken, line_num + 1)
           end
         end
       }
       if block_comment
         #Hanging block comment, so for ease raise an error
-        enum << Word.new(:BlockCommentError, block_comment_line_num + 1)
+        enum << Word.new(:BlockCommentError, nil, block_comment_line_num + 1)
       end
     end
     words
