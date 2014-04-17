@@ -1,4 +1,4 @@
-module Parser
+#module Parser
   
   require '../lexer/lexer.rb'
 
@@ -1106,4 +1106,4 @@ module Parser
     iter = Lexer.get_words(source)
     program(iter).prin
   end
-end
+#end
