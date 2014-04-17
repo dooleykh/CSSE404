@@ -34,7 +34,7 @@ class Method
 
 end
 
-class SyntaxError < Exception
+class JavaSyntaxError < Exception
 end
 
 def lookup(symbol, env)
@@ -76,7 +76,7 @@ def mathTypes(typeA, typeB)
 		if typeB == :int or typeB == :bool
 			return :int
 		else
-			raise SyntaxError
+			raise JavaSyntaxError
 		end
 	elsif typeA == :bool
 		if typeB == :bool
@@ -84,13 +84,38 @@ def mathTypes(typeA, typeB)
 		elsif typeB == :int
 			return :int
 		else
-			raise SyntaxError
+			raise JavaSyntaxError
 		end
 	else
-		raise SyntaxError
+		raise JavaSyntaxError
 	end
 end
 
+def matchArgs(method, exprls, env)
+	return true
+end
+
+def expr8chain(symbol, type, env)
+	unless method = lookup(symbol.children[0].value, env)
+		puts "Method #{symbol.children[0].value} doesn't exist"
+		raise JavaSyntaxError
+	end
+
+	unless matchArgs(method, symbol.children[1], env)
+		puts "Args don't match"
+		raise JavaSyntaxError
+	end
+
+	type = method.type
+	
+	if symbol.children.last.name == :Expr8Pr
+		return expr8chain(symbol.children.last, type, env)
+	else
+		return type
+	end
+end
+
+			
 def resolveExprType(tree, env)
 	case tree.name
 	when :Expr, :Expr2, :Expr3, :Expr4, :Expr5, :Expr6
@@ -107,7 +132,7 @@ def resolveExprType(tree, env)
 			if a == :int or a == :bool
 				return :bool
 			else
-				raise SyntaxError
+				raise JavaSyntaxError
 			end
 		elsif tree.type = '-'
 			if a == :int or a == :bool
@@ -121,8 +146,9 @@ def resolveExprType(tree, env)
 		if tree.children.length == 1
 			return resolveExprType(tree.children[0], env)
 		end
-		# oh my this will be complicated
-		# this is where we have to verify methods are called with correct args
+
+		a = resolveExprType(tree.children[0], env)
+		return expr8chain(tree.children[1], a, env)
 
 	when :Expr9
 		item = tree.children[0]
@@ -132,10 +158,11 @@ def resolveExprType(tree, env)
 		when :id
 			return lookup(item.value, env)
 		when :this
-			return lookup(
+			#return lookup
+			return :no
 		when :Integer, :null
 			return :int
-		when :true, false
+		when :true, :false
 			return :bool
 		when :expr
 			return resolveExprType(tree.children[0], env)
@@ -168,6 +195,7 @@ def walk(tree, tables)
       #extending class
       if not tables.last[tree.children[1].value]
         puts "ERROR"
+		raise JavaSyntaxError
       end
       tables << {}
       tables.last[:super] = tree.children[1].value
@@ -186,19 +214,6 @@ def walk(tree, tables)
   when :ClassVarDeclSt
     tree.children.each { |c| walk(c, tables) }
   when :MethodDecl
-    tables << {}
-    tree.children[1..-1].each { |c| walk(c, tables) }
-    ret = resolveType(tree.children[0])
-	method = Method.new
-	method.returnValue = ret
-
-
-	unless ret == resolveTypeExpr(tree.children[-1], tables)
-      puts tree.children[0].name
-      puts "MethodDecl ERROR"
-    end
-    tables.pop
-
 	formal = tree.children[2]
 	while true
 		case formal.name
@@ -216,10 +231,28 @@ def walk(tree, tables)
 		end
 	end
 
-    tables.last[tree.children[1].value] = :methodGoesHere
+    ret = resolveType(tree.children[0])
+	method = Method.new
+	method.returnValue = ret
+
+    tables.last[tree.children[1].value] = method
+
+	unless ret == resolveTypeExpr(tree.children[-1], tables)
+      puts tree.children[0].name
+      puts "MethodDecl ERROR"
+		raise JavaSyntaxError
+    end
+
+    tables << {}
+    tree.children[1..-1].each { |c| walk(c, tables) }
+
+
+    tables.pop
+
   when :ClassVarDecl
 	  if tables.last[tree.children[0].value]
 		  puts "ERROR - variable #{tree.children[0]} already defined"
+		raise JavaSyntaxError
 	  end
 
 	  tables.last[tree.children[0].value] = Variable.new(resolveType(tree.children[1]))
@@ -236,6 +269,7 @@ def walk(tree, tables)
   when :Type
 	  #We shouldn't ever get here
 	  puts "ERROR - I don't even know"
+		raise JavaSyntaxError
     
   when :Stmt
 	  case tree.type
@@ -248,12 +282,14 @@ def walk(tree, tables)
 		  tree.children.each { |c| walk(c, tables) }
 
 	  when :var_dec
-		  unless resolveType(tree.children[0]) == resolveTypeExpr(tree.children[2])
+		  unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], tables)
 			  puts "Error - that expression doesn't make that type"
+		raise JavaSyntaxError
 		  end
 
 		  if tables.last[tree.children[1].value]
 			  puts "ERROR - variable #{tree.children[1]} already defined"
+		raise JavaSyntaxError
 		  end
 
 		  var = Variable.new(resolveType(tree.children[0]))
@@ -264,10 +300,12 @@ def walk(tree, tables)
 
 		  unless lookup(tree.children[0].value, env).type == resolveTypeExpr(tree.children[1])
 			  puts "Error - that expression doesn't make that type"
+		raise JavaSyntaxError
 		  end
 
 		  unless tables.last[tree.children[0].value]
 			  puts "ERROR - variable #{tree.children[0]} not already defined"
+		raise JavaSyntaxError
 		  end
 
 	  when :print
