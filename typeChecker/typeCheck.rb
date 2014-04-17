@@ -29,6 +29,7 @@ class Method
 	end
 
 	def initialize()
+		@arguements = Array.new
 	end
 
 end
@@ -36,6 +37,29 @@ end
 class SyntaxError < Exception
 end
 
+def lookup(symbol, env)
+	if env.last[symbol]
+   		return env.last[symbol]
+	end
+
+	if env.length > 2
+		a = lookup(symbol, env[0..-2])
+		return a if a
+	end
+
+	if env.last[:super]
+		a = lookup(symbol, lookup(env.last[:super], [env.first]))
+		return a if a
+	end
+
+	if env.first[symbol]
+		return env.first[symbol]
+	end
+
+	return nil
+end
+
+				
 #turns a type token into int, boolean, or a name
 def resolveType(token)
 	if token.type == :int or token.type == :bool
@@ -67,18 +91,18 @@ def mathTypes(typeA, typeB)
 	end
 end
 
-def resolveExprType(tree)
+def resolveExprType(tree, env)
 	case tree.name
 	when :Expr, :Expr2, :Expr3, :Expr4, :Expr5, :Expr6
 		if tree.children.length == 1
-			return resolveExprType(tree.children[0])
+			return resolveExprType(tree.children[0], env)
 		end
-		a = resolveExprType(tree.children[0])
-		b = resolveExprType(tree.children[1])
+		a = resolveExprType(tree.children[0], env)
+		b = resolveExprType(tree.children[1], env)
 		return mathTypes(a, b)
 
 	when :Expr7
-		a = resolveExprType(tree.children[0])
+		a = resolveExprType(tree.children[0], env)
 		if tree.type == '!'
 			if a == :int or a == :bool
 				return :bool
@@ -95,7 +119,7 @@ def resolveExprType(tree)
 
 	when :Expr8
 		if tree.children.length == 1
-			return resolveExprType(tree.children[0])
+			return resolveExprType(tree.children[0], env)
 		end
 		# oh my this will be complicated
 		# this is where we have to verify methods are called with correct args
@@ -106,25 +130,18 @@ def resolveExprType(tree)
 		when :new
 			return item.children[0].value
 		when :id
-			#look up id in symbol table and return its type
+			return lookup(item.value, env)
 		when :this
-			#ummmm... I'm not sure how we do this
+			return lookup(
 		when :Integer, :null
 			return :int
 		when :true, false
 			return :bool
 		when :expr
-			return resolveExprType(tree.children[0])
+			return resolveExprType(tree.children[0], env)
 		end
 	end
 end
-			
-
-##true for int, bool, false for methods, classes
-#def canMath(token)
-#	i = resolveType(token)
-#	return i==:int or i==:bool
-#end
 
 def walk(tree, tables)
   if not tree
@@ -171,23 +188,37 @@ def walk(tree, tables)
   when :MethodDecl
     tables << {}
     tree.children[1..-1].each { |c| walk(c, tables) }
-    #Note: write functions for checking types
     ret = resolveType(tree.children[0])
+	method = Method.new
+	method.returnValue = ret
 
-    #if ret.type == :int or ret.type == :bool
-    #  ret = ret.type
-    #else
-    #  ret = ret.children[0].value
-    #end
 
-    unless ret == getType(tree.children[-1])
+	unless ret == resolveTypeExpr(tree.children[-1], tables)
       puts tree.children[0].name
       puts "MethodDecl ERROR"
     end
     tables.pop
+
+	formal = tree.children[2]
+	while true
+		case formal.name
+		when :FormalSt
+			if formal.children.size > 0
+				formal = formal.children[0]
+			else
+				break
+			end
+		when :FormalPl
+			method.arguements.push resolveType(formal.children[0].children[0])
+			formal = formal.children[1]
+		when :Formal
+			method.arguements.push resolveType(formal.children[0].children[0])
+		end
+	end
+
     tables.last[tree.children[1].value] = :methodGoesHere
   when :ClassVarDecl
-	  if tables.last[tree.children[0]]
+	  if tables.last[tree.children[0].value]
 		  puts "ERROR - variable #{tree.children[0]} already defined"
 	  end
 
@@ -207,13 +238,45 @@ def walk(tree, tables)
 	  puts "ERROR - I don't even know"
     
   when :Stmt
-	  #complicated
-    
-  when :Program
-    
+	  case tree.type
+	  when :block
+		  tables << {}
+		  tree.children.each { |c| walk(c, tables) }
+		  tables.pop
+	  
+	  when :if, :while
+		  tree.children.each { |c| walk(c, tables) }
+
+	  when :var_dec
+		  unless resolveType(tree.children[0]) == resolveTypeExpr(tree.children[2])
+			  puts "Error - that expression doesn't make that type"
+		  end
+
+		  if tables.last[tree.children[1].value]
+			  puts "ERROR - variable #{tree.children[1]} already defined"
+		  end
+
+		  var = Variable.new(resolveType(tree.children[0]))
+
+		  tables.last[tree.children[1].value] = var
+
+	  when :var_asgn
+
+		  unless lookup(tree.children[0].value, env).type == resolveTypeExpr(tree.children[1])
+			  puts "Error - that expression doesn't make that type"
+		  end
+
+		  unless tables.last[tree.children[0].value]
+			  puts "ERROR - variable #{tree.children[0]} not already defined"
+		  end
+
+	  when :print
+		  resolveExprType(tree.children[0], tables)
+	end
     
   end
 end
+
 
 
 if __FILE__ == $PROGRAM_NAME
