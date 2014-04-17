@@ -1056,6 +1056,7 @@
         eatThru('(', iter)
         result.children.push expr(iter)
         eatThru(')', iter)
+		result.type = :expr
       else
         puts "Malformed Expr9"
         raise InvalidParse

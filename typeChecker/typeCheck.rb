@@ -46,6 +46,7 @@ def resolveType(token)
 	token
 end
 
+#returns the type given by performing math on two types
 def mathTypes(typeA, typeB)
 	if typeA == :int
 		if typeB == :int or typeB == :bool
@@ -97,8 +98,26 @@ def resolveExprType(tree)
 			return resolveExprType(tree.children[0])
 		end
 		# oh my this will be complicated
+		# this is where we have to verify methods are called with correct args
 
-
+	when :Expr9
+		item = tree.children[0]
+		case item.type
+		when :new
+			return item.children[0].value
+		when :id
+			#look up id in symbol table and return its type
+		when :this
+			#ummmm... I'm not sure how we do this
+		when :Integer, :null
+			return :int
+		when :true, false
+			return :bool
+		when :expr
+			return resolveExprType(tree.children[0])
+		end
+	end
+end
 			
 
 ##true for int, bool, false for methods, classes
