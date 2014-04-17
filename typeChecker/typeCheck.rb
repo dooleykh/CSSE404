@@ -15,6 +15,27 @@ class Variable
 	end
 end
 
+class Method
+	@arguements
+	@returnValue
+	@location
+
+	attr_accessor :arguments, :returnValue, :location
+
+	def initialize(args, ret, loc)
+		@arguements = args
+		@returnValue = ret
+		@location = loc
+	end
+
+	def initialize()
+	end
+
+end
+
+class SyntaxError < Exception
+end
+
 #turns a type token into int, boolean, or a name
 def resolveType(token)
 	if token.type == :int or token.type == :bool
@@ -25,11 +46,66 @@ def resolveType(token)
 	token
 end
 
-#true for int, bool, false for methods, classes
-def canMath(token)
-	i = resolveType(token)
-	return i==:int or i==:bool
+def mathTypes(typeA, typeB)
+	if typeA == :int
+		if typeB == :int or typeB == :bool
+			return :int
+		else
+			raise SyntaxError
+		end
+	elsif typeA == :bool
+		if typeB == :bool
+			return :bool
+		elsif typeB == :int
+			return :int
+		else
+			raise SyntaxError
+		end
+	else
+		raise SyntaxError
+	end
 end
+
+def resolveExprType(tree)
+	case tree.name
+	when :Expr, :Expr2, :Expr3, :Expr4, :Expr5, :Expr6
+		if tree.children.length == 1
+			return resolveExprType(tree.children[0])
+		end
+		a = resolveExprType(tree.children[0])
+		b = resolveExprType(tree.children[1])
+		return mathTypes(a, b)
+
+	when :Expr7
+		a = resolveExprType(tree.children[0])
+		if tree.type == '!'
+			if a == :int or a == :bool
+				return :bool
+			else
+				raise SyntaxError
+			end
+		elsif tree.type = '-'
+			if a == :int or a == :bool
+				return a
+			end
+		else
+			return a
+		end
+
+	when :Expr8
+		if tree.children.length == 1
+			return resolveExprType(tree.children[0])
+		end
+		# oh my this will be complicated
+
+
+			
+
+##true for int, bool, false for methods, classes
+#def canMath(token)
+#	i = resolveType(token)
+#	return i==:int or i==:bool
+#end
 
 def walk(tree, tables)
   if not tree
