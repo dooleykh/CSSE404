@@ -5,14 +5,17 @@ class mainclass {
 }
 
 class c extends mainclass {
-    public int function() {
-        return 0;
+    int a;
+    public boolean function() {
+        return true;
     }
     public int fun() {
-        return 0;
+        return this.function();
     }
 }
 
-/*class d extends WHY{
-    
-}*/
+class d extends c{
+    public int fun() {
+        return 2;
+    }
+}

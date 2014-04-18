@@ -1,5 +1,5 @@
-require "../parser/parser.rb"
-require "../lexer/lexer.rb"
+require_relative "../parser/parser.rb"
+require_relative  "../lexer/lexer.rb"
 
 def getType(tree)
   :int
@@ -10,12 +10,12 @@ class Variable
 
 	attr_accessor :type
 
-	def initailize(type)
+	def initialize(type)
 		@type = type
 	end
 end
 
-class Method
+class JavaMethod
 	@arguements
 	@returnValue
 	@location
@@ -38,8 +38,14 @@ class JavaSyntaxError < Exception
 end
 
 def lookup(symbol, env)
-	if env.last[symbol]
-   		return env.last[symbol]
+  if env.nil?
+    return nil
+  end
+
+  if symbol == "this"
+  end
+  if env.last[symbol]
+    return env.last[symbol]
 	end
 
 	if env.length > 2
@@ -48,8 +54,8 @@ def lookup(symbol, env)
 	end
 
 	if env.last[:super]
-		a = lookup(symbol, lookup(env.last[:super], [env.first]))
-		return a if a
+    a = lookup(symbol, [env.first, lookup(env.last[:super], [env.first])])
+    return a if a
 	end
 
 	if env.first[symbol]
@@ -59,13 +65,13 @@ def lookup(symbol, env)
 	return nil
 end
 
-				
+
 #turns a type token into int, boolean, or a name
 def resolveType(token)
-	if token.type == :int or token.type == :bool
+	if token.type == :int or token.type == :boolean
 		token = token.type
 	else
-		token = token.children[0].value
+		token = token.value
 	end
 	token
 end
@@ -73,14 +79,14 @@ end
 #returns the type given by performing math on two types
 def mathTypes(typeA, typeB)
 	if typeA == :int
-		if typeB == :int or typeB == :bool
+		if typeB == :int or typeB == :boolean
 			return :int
 		else
 			raise JavaSyntaxError
 		end
-	elsif typeA == :bool
-		if typeB == :bool
-			return :bool
+	elsif typeA == :boolean
+		if typeB == :boolean
+			return :boolean
 		elsif typeB == :int
 			return :int
 		else
@@ -96,7 +102,8 @@ def matchArgs(method, exprls, env)
 end
 
 def expr8chain(symbol, type, env)
-	unless method = lookup(symbol.children[0].value, env)
+  method = lookup(symbol.children[0].value, env)
+  if method.nil?
 		puts "Method #{symbol.children[0].value} doesn't exist"
 		raise JavaSyntaxError
 	end
@@ -106,7 +113,7 @@ def expr8chain(symbol, type, env)
 		raise JavaSyntaxError
 	end
 
-	type = method.type
+	type = method.returnValue
 	
 	if symbol.children.last.name == :Expr8Pr
 		return expr8chain(symbol.children.last, type, env)
@@ -115,7 +122,7 @@ def expr8chain(symbol, type, env)
 	end
 end
 
-			
+
 def resolveExprType(tree, env)
 	case tree.name
 	when :Expr, :Expr2, :Expr3, :Expr4, :Expr5, :Expr6
@@ -129,13 +136,13 @@ def resolveExprType(tree, env)
 	when :Expr7
 		a = resolveExprType(tree.children[0], env)
 		if tree.type == '!'
-			if a == :int or a == :bool
-				return :bool
+			if a == :int or a == :boolean
+				return :boolean
 			else
 				raise JavaSyntaxError
 			end
 		elsif tree.type = '-'
-			if a == :int or a == :bool
+			if a == :int or a == :boolean
 				return a
 			end
 		else
@@ -152,22 +159,27 @@ def resolveExprType(tree, env)
 
 	when :Expr9
 		item = tree.children[0]
-		case item.type
+		case tree.type
 		when :new
 			return item.children[0].value
 		when :id
-			return lookup(item.value, env)
+      l = lookup(item.value, env)
+      if l.nil?
+        #variable doesn't exist
+        raise JavaSyntaxError
+      end
+      return l.type
 		when :this
-			#return lookup
-			return :no
-		when :Integer, :null
+      return lookup(:this, env)
+		when :integer, :null
 			return :int
 		when :true, :false
-			return :bool
+			return :boolean
 		when :expr
 			return resolveExprType(tree.children[0], env)
 		end
-	end
+  end
+  
 end
 
 def walk(tree, tables)
@@ -186,8 +198,6 @@ def walk(tree, tables)
     walk(tree.children[2], tables)
     t = tables.pop
     tables.last[tree.children[0].value] = t
-    p tables
-
   when :StmtSt
     tree.children.each { |c| walk(c, tables) }
   when :ClassDecl
@@ -195,52 +205,68 @@ def walk(tree, tables)
       #extending class
       if not tables.last[tree.children[1].value]
         puts "ERROR"
-		raise JavaSyntaxError
+        raise JavaSyntaxError
       end
       tables << {}
       tables.last[:super] = tree.children[1].value
     else
       tables << {}
     end
+        tables.last[:this] = tables.last
     tree.children.each { |c|
       unless c.name == :id
         walk(c, tables)
       end }
     env = tables.pop
     tables.last[tree.children[0].value] = env
-    p tables
   when :MethodDeclSt
     tree.children.each { |c| walk(c, tables) }
   when :ClassVarDeclSt
     tree.children.each { |c| walk(c, tables) }
   when :MethodDecl
-	formal = tree.children[2]
-	while true
-		case formal.name
-		when :FormalSt
-			if formal.children.size > 0
-				formal = formal.children[0]
-			else
-				break
-			end
-		when :FormalPl
-			method.arguements.push resolveType(formal.children[0].children[0])
-			formal = formal.children[1]
-		when :Formal
-			method.arguements.push resolveType(formal.children[0].children[0])
-		end
-	end
+    if tables.last[tree.children[1].value]
+      #method exists. Throw
+      raise JavaSyntaxError
+    end
+    if tables.last[:super]
+      l = lookup(tree.children[1], tables) 
+      if l
+        unless l.is_a?(JavaMethod) && l.type == resolveType(tree.children[0])
+          puts "HELP ERROR"
+          raise JavaSyntaxError
+        end
+      end
+    end
+    formal = tree.children[2]
+    if formal.name == :FormalSt
+      while true
+        case formal.name
+        when :FormalSt
+          if formal.children.size > 0
+            formal = formal.children[0]
+          else
+            break
+          end
+        when :FormalPl
+          method.arguements.push resolveType(formal.children[0].children[0])
+          formal = formal.children[1]
+        when :Formal
+          method.arguements.push resolveType(formal.children[0].children[0])
+        end
+      end
+    end
 
     ret = resolveType(tree.children[0])
-	method = Method.new
-	method.returnValue = ret
+    method = JavaMethod.new
+    method.returnValue = ret
 
     tables.last[tree.children[1].value] = method
-
-	unless ret == resolveTypeExpr(tree.children[-1], tables)
-      puts tree.children[0].name
+    unless ret == resolveExprType(tree.children[-1], tables)
+      # p ret
+      # p resolveExprType(tree.children[-1], tables)
+      # puts tree.children[-1].name
       puts "MethodDecl ERROR"
-		raise JavaSyntaxError
+      raise JavaSyntaxError
     end
 
     tables << {}
@@ -250,13 +276,12 @@ def walk(tree, tables)
     tables.pop
 
   when :ClassVarDecl
-	  if tables.last[tree.children[0].value]
+    unless lookup(tree.children[1].value, tables).nil?
 		  puts "ERROR - variable #{tree.children[0]} already defined"
-		raise JavaSyntaxError
+      raise JavaSyntaxError
 	  end
 
-	  tables.last[tree.children[0].value] = Variable.new(resolveType(tree.children[1]))
-    
+	  tables.last[tree.children[1].value] = Variable.new(resolveType(tree.children[0]))
   when :FormalSt
     tree.children.each { |c| walk(c, tables) }
 
@@ -277,19 +302,19 @@ def walk(tree, tables)
 		  tables << {}
 		  tree.children.each { |c| walk(c, tables) }
 		  tables.pop
-	  
+      
 	  when :if, :while
-		  tree.children.each { |c| walk(c, tables) }
+        tree.children.each { |c| walk(c, tables) }
 
 	  when :var_dec
 		  unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], tables)
 			  puts "Error - that expression doesn't make that type"
-		raise JavaSyntaxError
+        raise JavaSyntaxError
 		  end
 
 		  if tables.last[tree.children[1].value]
 			  puts "ERROR - variable #{tree.children[1]} already defined"
-		raise JavaSyntaxError
+        raise JavaSyntaxError
 		  end
 
 		  var = Variable.new(resolveType(tree.children[0]))
@@ -300,17 +325,17 @@ def walk(tree, tables)
 
 		  unless lookup(tree.children[0].value, env).type == resolveTypeExpr(tree.children[1])
 			  puts "Error - that expression doesn't make that type"
-		raise JavaSyntaxError
+        raise JavaSyntaxError
 		  end
 
 		  unless tables.last[tree.children[0].value]
 			  puts "ERROR - variable #{tree.children[0]} not already defined"
-		raise JavaSyntaxError
+        raise JavaSyntaxError
 		  end
 
 	  when :print
 		  resolveExprType(tree.children[0], tables)
-	end
+    end
     
   end
 end
@@ -320,6 +345,6 @@ end
 if __FILE__ == $PROGRAM_NAME
   source = File.absolute_path(ARGF.filename)
   parse_tree = program(Lexer.get_words(source))
-  walk(parse_tree, nil)
+  p walk(parse_tree, nil)
 end
 
