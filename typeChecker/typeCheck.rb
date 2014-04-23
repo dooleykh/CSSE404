@@ -467,7 +467,6 @@ def walk(parse_tree)
 				methodObject.name = name
 				methodObject.ret = resolveType(methodTree.children[0])
 				methodObject.parseTree = methodTree
-				methodObject.parseTree = :things
 				methodObject.args = Array.new
 				methodObject.argnames = Array.new
 
