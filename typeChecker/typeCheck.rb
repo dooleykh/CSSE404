@@ -1,8 +1,8 @@
 require_relative "../parser/parser.rb"
 require_relative  "../lexer/lexer.rb"
 
-GlobalEnv = Hash.new
-failed = false
+$GlobalEnv = Hash.new
+$Failed = false
 
 def walk(tree, env)
 	if not tree
@@ -12,7 +12,7 @@ def walk(tree, env)
 	case tree.name
 	when :Program, :ClassDeclSt, :ClassDecl, :MethodDeclSt, :ClassVarDeclSt, :MainClassDecl, :MethodDecl, :ClassVarDecl, :FormalSt, :FormalPl, :Formal, :Type
 		puts "Shouldn't happen" #handled by earlier passes
-		failed = true
+		$Failed = true
 
 	when :StmtSt
 		tree.children.each { |c| walk(c, env) }
@@ -33,14 +33,14 @@ def walk(tree, env)
 	  when :var_dec
 		  unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], env)
 			  puts "Error - that expression doesn't make that type"
-			  failed = true
+			  $Failed = true
 
         raise JavaSyntaxError
 		  end
 
 		  if env.last[tree.children[1].value]
 			  puts "ERROR - variable #{tree.children[1]} already defined"
-			  failed = true
+			  $Failed = true
         raise JavaSyntaxError
 		  end
 
@@ -50,15 +50,15 @@ def walk(tree, env)
 
 	  when :var_asgn
 
-		  unless lookup(tree.children[0].value, env).type == resolveTypeExpr(tree.children[1])
+		  unless lookup(tree.children[0].value, env).type == resolveExprType(tree.children[1], env)
 			  puts "Error - that expression doesn't make that type"
-			  failed = true
+			  $Failed = true
         raise JavaSyntaxError
 		  end
 
 		  unless env.last[tree.children[0].value]
 			  puts "ERROR - variable #{tree.children[0]} not already defined"
-			  failed = true
+			  $Failed = true
         raise JavaSyntaxError
 		  end
 
@@ -122,8 +122,13 @@ end
 class JavaSyntaxError < Exception
 end
 
-
 def passes(parse_tree)
+	firstPass(parse_tree)
+	secondPass
+	thirdPass
+end
+
+def firstPass(parse_tree)
 
 	#first pass - class prototypes
 	classes = Array.new
@@ -139,21 +144,21 @@ def passes(parse_tree)
 	classes.each { |x|
 		name = x.children[0].value
 
-		if GlobalEnv[name]
+		if $GlobalEnv[name]
 			puts "Error - class #{name} already declared"
-			  failed = true
+			  $Failed = true
 			next
 		end
 
-		GlobalEnv[name] = JavaClass.new
-		GlobalEnv[name].parseTree = x
+		$GlobalEnv[name] = JavaClass.new
+		$GlobalEnv[name].parseTree = x
 	}
+end
 
-
-
+def secondPass
 
 	#Second pass - define each method and field in the class environments
-	GlobalEnv.each_value { |classObject|
+	$GlobalEnv.each_value { |classObject|
 		#For each class
 
 		classObject.name = classObject.parseTree.children[0].value
@@ -185,6 +190,10 @@ def passes(parse_tree)
 
 				elsif child.type == :id # Class we're extending
 					classObject.env[:super] = child.value
+					if child.value == classObject.name
+						puts "Class #{child.value} can't extend itself"
+						$Failed = true
+					end
 
 				# Flatten the tree into a list of methods and a list of methods
 				elsif child.name == :ClassVarDeclSt
@@ -209,7 +218,7 @@ def passes(parse_tree)
 				name = varTree.children[1].value
 				if classObject.env[name]
 					puts "Error - class variable #{name} already declared"
-			  failed = true
+			  $Failed = true
 					next
 				end
 
@@ -223,7 +232,7 @@ def passes(parse_tree)
 
 				if classObject.env[name]
 					puts "Error - method #{name} already declared"
-			  failed = true
+			  $Failed = true
 					next
 				end
 
@@ -276,9 +285,12 @@ def passes(parse_tree)
 
 		classObject.parseTree = nil
 	}
+end
+
+def thirdPass
 
 	# Third pass - validate methods
-	GlobalEnv.each_value { |i|
+	$GlobalEnv.each_value { |i|
 
 		# Mainclass (and therefore main method)
 		if i.main
@@ -325,8 +337,8 @@ def passes(parse_tree)
 
 			#verify the return type
 			unless resolveExprType(j.parseTree.children[-1], env) == j.ret
-				puts "Error - method #{j.name} does not return the correct type"
-			  failed = true
+				puts "Error - method #{j.name} in #{i.name} does not return the correct type"
+			  $Failed = true
 			end
 
 			j.parseTree = nil
@@ -338,7 +350,7 @@ end
 
 def lookup(symbol, env)
 	if env == nil
-		return GlobalEnv[symbol]
+		return $GlobalEnv[symbol]
 	end
 
 
@@ -347,7 +359,7 @@ def lookup(symbol, env)
 	elsif env.size > 1
 		return lookup(symbol, env[0..-2])
 	elsif env.first[:super]
-		return lookup(symbol, [env.first[:super].env])
+		return lookup(symbol, [$GlobalEnv[env.first[:super]].env])
 	else
 		return lookup(symbol, nil)
 	end
@@ -459,7 +471,7 @@ def matchArgs(method, argslist, env)
 
 	if types.size != method.args.size
 		puts "Wrong number of arguements"
-			  failed = true
+			  $Failed = true
 		return false
 	end
 
@@ -475,14 +487,14 @@ end
 def expr8chain(symbol, type, env)
   method = lookup(symbol.children[0].value, env)
   if method.nil?
-		puts "Method #{symbol.children[0].value} doesn't exist"
-			  failed = true
+		puts "Method #{symbol.children[0].value} in #{env.first[:this]} doesn't exist"
+			  $Failed = true
 		raise JavaSyntaxError
 	end
 
 	unless matchArgs(method, symbol.children[1], env)
 		puts "Args don't match"
-			  failed = true
+			  $Failed = true
 		raise JavaSyntaxError
 	end
 
@@ -499,7 +511,7 @@ if __FILE__ == $PROGRAM_NAME
   source = File.absolute_path(ARGF.filename)
   parse_tree = program(Lexer.get_words(source))
   passes(parse_tree)
-  unless failed
+  unless $Failed
 	  puts "Y'okay!"
   end
 end
