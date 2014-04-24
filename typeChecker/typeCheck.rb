@@ -4,6 +4,7 @@ require_relative  "../lexer/lexer.rb"
 $GlobalEnv = Hash.new
 $Failed = false
 
+# Recursively typecheck some statements
 def walk(tree, env)
 	if not tree
 		return
@@ -21,48 +22,47 @@ def walk(tree, env)
 		resolveExprType(tree, env)
 
 	when :Stmt
-	  case tree.type
-	  when :block
-		  env << {}
-		  tree.children.each { |c| walk(c, env) }
-		  env.pop
+	  	case tree.type
+	  	when :block
+		  	env << {}
+		  	tree.children.each { |c| walk(c, env) }
+		  	env.pop
       
-	  when :if, :while
-        tree.children.each { |c| walk(c, env) }
+		when :if, :while
+			tree.children.each { |c| walk(c, env) }
 
-	  when :var_dec
-		  unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], env)
-			  puts "Error - that expression doesn't make that type"
-			  $Failed = true
+		when :var_dec
+			unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], env)
+				puts "Error - that expression doesn't make that type"
+				$Failed = true
+				raise JavaSyntaxError
+			end
 
-        raise JavaSyntaxError
-		  end
+			if env.last[tree.children[1].value]
+				puts "ERROR - variable #{tree.children[1]} already defined"
+				$Failed = true
+				raise JavaSyntaxError
+			end
 
-		  if env.last[tree.children[1].value]
-			  puts "ERROR - variable #{tree.children[1]} already defined"
-			  $Failed = true
-        raise JavaSyntaxError
-		  end
+			var = JavaVariable.new(resolveType(tree.children[0]))
+			env.last[tree.children[1].value] = var
 
-		  var = JavaVariable.new(resolveType(tree.children[0]))
+	  	when :var_asgn
 
-		  env.last[tree.children[1].value] = var
+		  	unless lookup(tree.children[0].value, env).type == resolveExprType(tree.children[1], env)
+				puts "Error - that expression doesn't make that type"
+				$Failed = true
+        		
+				raise JavaSyntaxError
+		  	end
 
-	  when :var_asgn
+		  	unless env.last[tree.children[0].value]
+			  	puts "ERROR - variable #{tree.children[0]} not already defined"
+			  	$Failed = true
+        		raise JavaSyntaxError
+		  	end
 
-		  unless lookup(tree.children[0].value, env).type == resolveExprType(tree.children[1], env)
-			  puts "Error - that expression doesn't make that type"
-			  $Failed = true
-        raise JavaSyntaxError
-		  end
-
-		  unless env.last[tree.children[0].value]
-			  puts "ERROR - variable #{tree.children[0]} not already defined"
-			  $Failed = true
-        raise JavaSyntaxError
-		  end
-
-	  when :print
+		when :print
 		  resolveExprType(tree.children[0], env)
     end
     
