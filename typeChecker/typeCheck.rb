@@ -500,7 +500,7 @@ if __FILE__ == $PROGRAM_NAME
   parse_tree = program(Lexer.get_words(source))
   passes(parse_tree)
   unless failed
-	  puts 'Yokay!'
+	  puts "Y'okay!"
   end
 end
 
