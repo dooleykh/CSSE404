@@ -9,19 +9,18 @@ class Machine
 
 	@halted
 
-	attr_accessor :tapes, :states
+	attr_accessor :tapes, :states, :halted
 
-	def initialize
-		@tapes = Hash.new
-		@states = Hash.new
+	def initialize(tapes, states)
+		@tapes = tapes
+		@states = states
 		@halted = false
 	end
 
 	def run(input)
 		state = states[:start]
 		while !@halted
-			p state
-			state = state.nextState(self)
+			state = @states[state.nextState(self)]
 		end
 	end
 
@@ -56,7 +55,7 @@ class Transition
 
 	# Performs the actions associated with this transition, returning the next state
 	def do(machine)
-		actions.each{ |a| a.perform machine }
+		@actions.each{ |a| a.perform machine }
 		return @nextState
 	end
 end
@@ -79,7 +78,7 @@ class Action
 		when :right
 			machine.tapes[@tape].right
 		when :print
-			puts "#{machine.tapes[@tape]}"
+			machine.tapes[@tape].to_s
 		when :halt
 			machine.halted = true
 		else
@@ -219,9 +218,9 @@ if __FILE__ == $PROGRAM_NAME
 		:s9 => State.new(
 			[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s10)]),
 		:s10 => State.new(
-			[Transition.new(Hash.new, [Action.new("d", :output), Action.new(:right, :output)], :end)]),
+			[Transition.new(Hash.new, [Action.new("d", :output)], :end)]),
 		:end => State.new(
-			[Transition.new(Hash.new, [Action.new(:print, nil), Action.nil(:halt, nil)], :end)])})
+			[Transition.new(Hash.new, [Action.new(:print, :output), Action.new(:halt, nil)], :end)])})
 	m.run nil
 end
 
