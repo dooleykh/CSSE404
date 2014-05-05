@@ -1,0 +1,19 @@
+Tapes:
+
+:env contains the current environment, much like its handled in the
+typechecker, except that the names are not stored- the compiler remembers
+the offset.
+|:var|value|:var|value|:scope|:var|value|:var|value|
+
+Class definitions are not stored - the compiler knows the relevant offsets
+and 
+
+:objects contains all the existant objects
+
+:stack contains the callstack
+
+:r0, :r1, :r2, :r3 are registers
+
+:args is the arguements to a procedure, :ret is the return value
+(at the beginning of a procedure, we remove the arguements from :args and
+put them in local environment)
