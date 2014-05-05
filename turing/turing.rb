@@ -1,4 +1,5 @@
 BlankSymbol = :blank
+AnimationDelay = 1
 
 class Machine
 	@tapes
@@ -24,6 +25,42 @@ class Machine
 		end
 	end
 
+	def runAnimated(input)
+		lastTime = Time.now
+		state = states[:start]
+		printState state
+		
+		
+		while !@halted
+			while Time.now < lastTime + AnimationDelay
+				sleep (lastTime + AnimationDelay) - Time.now
+			end
+			lastTime = Time.now
+
+
+			state = @states[state.nextState(self)]
+			printState state
+		end
+	end
+
+	def printState(state)
+		print "\n"*80
+		puts "State: #{state}"
+		@tapes.each_key { |k|
+			puts k
+			puts @tapes[k].to_s
+		}
+	end
+
+	def to_s
+		result = ""
+		@states.each_key{|s|
+			result = "#{result}State #{s}:\n#{@states[s].to_s}"
+		}
+
+		return result
+	end
+
 end
 
 class Transition
@@ -36,6 +73,29 @@ class Transition
 	@nextState
 
 	attr_accessor :nestState
+
+	def to_s
+		result = ''
+		if @conditions.size > 0
+			result += 'When '
+			@conditions.each_key{ |k|
+				result += "(#{k}, #{@conditions[k]}), "
+			}
+		end
+
+		result += 'do '
+
+		@actions.each{ |a|
+			result += "#{a.to_s}, "
+		}
+
+		result += "goto #{@nextState}"
+
+		return result
+	end
+
+
+
 
 	def initialize(conditions, actions, nxt)
 		@conditions = conditions
@@ -85,6 +145,22 @@ class Action
 			machine.tapes[@tape].write @action
 		end
 	end
+
+	def to_s
+		case @action
+		when :left
+			return "(#{@tape} <)"
+		when :right
+			return "(#{@tape} >)"
+		when :print
+			return "(#{@tape} print)"
+		when :halt
+			return "(halt)"
+		else
+			return "(#{@tape} write \"#{@action}\")"
+		end
+	end
+
 end
 
 class State
@@ -93,6 +169,15 @@ class State
 
 	def initialize(transitions)
 		@transitions = transitions
+	end
+
+	def to_s
+		result = ""
+		@transitions.each {|t|
+			result = "#{result}  #{t.to_s}\n"
+		}
+
+		return result
 	end
 
 	# performs a transition, doing whatever actions are associated and 
@@ -119,8 +204,23 @@ class Tape
 
 	@node
 
-	def initialize
+	# def initialize
+	# 	@node = TapeNode.new(BlankSymbol)
+	# end
+
+	def initialize(array)
 		@node = TapeNode.new(BlankSymbol)
+		currentNode = @node
+		array.each_index {|i|
+			currentNode.symbol = array[i]
+
+			if i < (array.size() -1)
+				newNode = TapeNode.new(BlankSymbol)
+				currentNode.right = newNode
+				newNode.left = currentNode
+				currentNode = newNode
+			end
+		}
 	end
 
 	def read
@@ -196,32 +296,51 @@ end
 
 if __FILE__ == $PROGRAM_NAME
 	m = Machine.new(
-		{:output => Tape.new},
+		{:output => Tape.new(Array.new), :input => Tape.new([1, 1, 1, 1, 1])},
 		{:start => State.new(
-			[Transition.new(Hash.new, [Action.new("h", :output), Action.new(:right, :output)], :s1)]),
-		:s1 => State.new(
-			[Transition.new(Hash.new, [Action.new("e", :output), Action.new(:right, :output)], :s2)]),
-		:s2 => State.new(
-			[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s3)]),
-		:s3 => State.new(
-			[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s4)]),
-		:s4 => State.new(
-			[Transition.new(Hash.new, [Action.new("o", :output), Action.new(:right, :output)], :s5)]),
-		:s5 => State.new(
-			[Transition.new(Hash.new, [Action.new(" ", :output), Action.new(:right, :output)], :s6)]),
-		:s6 => State.new(
-			[Transition.new(Hash.new, [Action.new("w", :output), Action.new(:right, :output)], :s7)]),
-		:s7 => State.new(
-			[Transition.new(Hash.new, [Action.new("o", :output), Action.new(:right, :output)], :s8)]),
-		:s8 => State.new(
-			[Transition.new(Hash.new, [Action.new("r", :output), Action.new(:right, :output)], :s9)]),
-		:s9 => State.new(
-			[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s10)]),
-		:s10 => State.new(
-			[Transition.new(Hash.new, [Action.new("d", :output)], :end)]),
+			[Transition.new({:input => 1}, [
+				Action.new("1", :output), 
+				Action.new(:right, :output), 
+				Action.new("1", :output), 
+				Action.new(:right, :output),
+				Action.new(:right, :input)],
+			:start),
+			Transition.new({:input => BlankSymbol}, [
+				Action.new(:print, :output)],
+			:end)]),
 		:end => State.new(
-			[Transition.new(Hash.new, [Action.new(:print, :output), Action.new(:halt, nil)], :end)])})
-	m.run nil
+			[Transition.new(Hash.new, [Action.new(:halt, nil)], :end)])})
+	m.runAnimated nil
+	print m.to_s
+
+
+
+	# m = Machine.new(
+	# 	{:output => Tape.new},
+	# 	{:start => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("h", :output), Action.new(:right, :output)], :s1)]),
+	# 	:s1 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("e", :output), Action.new(:right, :output)], :s2)]),
+	# 	:s2 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s3)]),
+	# 	:s3 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s4)]),
+	# 	:s4 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("o", :output), Action.new(:right, :output)], :s5)]),
+	# 	:s5 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new(" ", :output), Action.new(:right, :output)], :s6)]),
+	# 	:s6 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("w", :output), Action.new(:right, :output)], :s7)]),
+	# 	:s7 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("o", :output), Action.new(:right, :output)], :s8)]),
+	# 	:s8 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("r", :output), Action.new(:right, :output)], :s9)]),
+	# 	:s9 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("l", :output), Action.new(:right, :output)], :s10)]),
+	# 	:s10 => State.new(
+	# 		[Transition.new(Hash.new, [Action.new("d", :output)], :end)]),
+	# 	:end => State.new(
+	# 		[Transition.new(Hash.new, [Action.new(:print, :output), Action.new(:halt, nil)], :end)])})
+	# m.runAnimated nil
+	# print m.to_s
 end
-
-
