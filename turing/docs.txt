@@ -1,5 +1,7 @@
 Tapes:
 
+default position of head is at the front of a variable
+
 :env contains the current environment, much like its handled in the
 typechecker, except that the names are not stored- the compiler remembers
 the offset.
@@ -10,10 +12,12 @@ and
 
 :objects contains all the existant objects
 
-:stack contains the callstack
+:call contains the callstack
 
-:r0, :r1, :r2, :r3 are registers
+:stack contains the arithmetic stack
 
-:args is the arguements to a procedure, :ret is the return value
-(at the beginning of a procedure, we remove the arguements from :args and
+:acc, :r0, :r1, :r2, :r3 are registers
+
+:args is the arguments to a procedure, :ret is the return value
+(at the beginning of a procedure, we remove the arguments from :args and
 put them in local environment)

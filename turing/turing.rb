@@ -1,5 +1,5 @@
 BlankSymbol = :blank
-AnimationDelay = 1
+AnimationDelay = 0.1
 
 class Machine
 	@tapes
@@ -27,7 +27,7 @@ class Machine
 
 	def runAnimated(input)
 		lastTime = Time.now
-		state = states[:start]
+		state = :start
 		printState state
 		
 		
@@ -38,7 +38,7 @@ class Machine
 			lastTime = Time.now
 
 
-			state = @states[state.nextState(self)]
+			state = @states[state].nextState(self)
 			printState state
 		end
 	end
@@ -166,6 +166,8 @@ end
 class State
 	@transitions
 	# array of transitions
+
+	attr_accessor :transitions
 
 	def initialize(transitions)
 		@transitions = transitions
