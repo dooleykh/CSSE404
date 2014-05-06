@@ -1,5 +1,5 @@
 BlankSymbol = :blank
-AnimationDelay = 0.1
+AnimationDelay = 0.01
 
 class Machine
 	@tapes
