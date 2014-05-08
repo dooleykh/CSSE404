@@ -1,13 +1,34 @@
 require_relative 'turing.rb'
 
 BitWidth = 32
+TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :args, :ret]
+NameLength = 5
 
 $nextState = 0
+$labelDict = Hash.new
 
-TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :args, :ret]
 
-def getNextState
-	sym = "s#{$nextState}".to_sym
+def getLabelNo(label)
+	unless $labelDict[label]
+		$labelDict[label] = -1
+	end
+
+	$labelDict[label] += 1
+	$labelDict[label]
+end
+
+# Gets a new unique state name, which includes the optionally specified label
+def getNextState(label = nil)
+	sym = ''
+	name = $nextState.to_s
+	while name.length < NameLength
+		name = '0' + name
+	end
+	if label
+		sym = "s#{name}-#{label}".to_sym
+	else
+		sym = "s#{name}".to_sym
+	end
 	$nextState += 1
 	sym
 end
@@ -40,12 +61,19 @@ class SubMachine < Machine
 		@last = otherMachine.last
 	end
 
-	def self.empty
+	def self.empty(label = nil)
 		m = SubMachine.new(nil, nil)
 		m.states = Hash.new
-		m.first = getNextState
-		m.last = getNextState
+		if label
+			labelNo = getLabelNo label
+			m.first = getNextState "#{label}-#{labelNo}-first"
+			m.last = getNextState "#{label}-#{labelNo}-last"
+		else
+			m.first = getNextState
+			m.last = getNextState
+		end
 		m.states[m.last] = State.new ( Array.new )
+		m.states[m.first] = State.new ( Array.new )
 		return m
 	end
 
@@ -60,6 +88,7 @@ class SubMachine < Machine
 
 end
 
+# Write a constant int to the tape, starting on the current position.
 def writeConstant(tape, int)
 	# m = scanLeft(tape)
 
@@ -72,7 +101,7 @@ def writeConstant(tape, int)
 	# p m.last
 	# puts '----------'
 
-	m3 = SubMachine.empty
+	m3 = SubMachine.empty 'WCons'
 	a = Array.new
 	(0..(BitWidth-1)).each {|i|
 		val = int % 2
@@ -89,8 +118,9 @@ def writeConstant(tape, int)
 	m3
 end
 
+# Moves a tape a certian distance
 def moveDistance(tape, dist, direction)
-	m = SubMachine.empty
+	m = SubMachine.empty 'mv'
 	a = Array.new
 	dist.times{ a.push Action.new(direction, tape) }
 
@@ -100,8 +130,9 @@ def moveDistance(tape, dist, direction)
 	m
 end
 
+# Scans the tape left, stopping on the last non blank symbol
 def scanLeft(tape)
-	m = SubMachine.empty
+	m = SubMachine.empty 'scanL'
 
 	m.states = {
 		m.first => State.new(
@@ -113,12 +144,43 @@ def scanLeft(tape)
 	m
 end
 
-def add(tape)
-	m = moveDistance(:acc, BitWidth - 1, :right)
-	m2 = moveDistance(tape,  BitWidth - 1, :right)
+# copies BitWidth symbols from tape1 to tape2
+def copy(tape1, tape2)
+	m = SubMachine.empty 'copy'
+	n = Array.new
+	n.push m.first
+	(BitWidth - 1).times{
+		n.push getNextState
+	}
+
+	n.each_index { |i|
+		nextName = nil
+		if i == (n.size() -1)
+			nextName = m.last
+		else
+			nextName = n[i+1]
+		end
+
+		m.states[n[i]] = State.new([
+			Transition.new( {tape1 => 0}, [Action.new(0, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName),
+			Transition.new( {tape1 => 1}, [Action.new(1, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName)
+		])
+	}
+
+	m2 = moveDistance(tape1, BitWidth, :left)
+	m3 = moveDistance(tape2, BitWidth, :left)
+	m.simpleMerge(m2)
+	m.simpleMerge(m3)
+
+	m
+end
+								 
+def add(tape1, tape2)
+	m = moveDistance(tape2, BitWidth - 1, :right)
+	m2 = moveDistance(tape1,  BitWidth - 1, :right)
 	m.simpleMerge(m2)
 
-	m3 = SubMachine.empty
+	m3 = SubMachine.empty 'add'
 	n1 = Array.new
 	n2 = Array.new
 	BitWidth.times{
@@ -135,20 +197,20 @@ def add(tape)
 		end
 		
 		m3.states[n1[i]] = State.new([
-			Transition.new( {:acc => 0, tape => 0}, [Action.new(:left, tape), Action.new(:left, :acc)], next1),
-			Transition.new( {:acc => 1, tape => 0}, [Action.new(1, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next1),
-			Transition.new( {:acc => 0, tape => 1}, [Action.new(1, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next1),
-			Transition.new( {:acc => 1, tape => 1}, [Action.new(0, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next2)])
+			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
 
 		m3.states[n2[i]] = State.new([
-			Transition.new( {:acc => 0, tape => 0}, [Action.new(1, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next1),
-			Transition.new( {:acc => 1, tape => 0}, [Action.new(0, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next2),
-			Transition.new( {:acc => 0, tape => 1}, [Action.new(0, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next2),
-			Transition.new( {:acc => 1, tape => 1}, [Action.new(1, :acc), Action.new(:left, tape), Action.new(:left, :acc)], next2)])
+			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
 	}
 
 	newLast = getNextState
-	m3.states[m3.last].transitions = [Transition.new(Hash.new, [Action.new(:right, tape), Action.new(:right, :acc)], newLast)]
+	m3.states[m3.last].transitions = [Transition.new(Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], newLast)]
 	m3.last = newLast
 	m3.states[newLast] = State.new( Array.new )
 
@@ -162,9 +224,11 @@ end
 if __FILE__ == $PROGRAM_NAME
 	m = writeConstant(:acc, 31)
 	m2 = writeConstant(:r0, 8)
-	m3 = add(:r0)
+	m3 = add(:r0, :acc)
 	m.simpleMerge(m2)
 	m.simpleMerge(m3)
+	m4 = copy(:acc, :output)
+	m.simpleMerge(m4)
 	m.finalize
 	print m.to_s
 	m.runAnimated nil

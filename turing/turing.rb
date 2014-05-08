@@ -1,5 +1,5 @@
 BlankSymbol = :blank
-AnimationDelay = 0.01
+AnimationDelay = 0.1
 
 class Machine
 	@tapes
@@ -54,7 +54,8 @@ class Machine
 
 	def to_s
 		result = ""
-		@states.each_key{|s|
+		@states.keys.sort.each{|s|
+		#@states.each_key{|s|
 			result = "#{result}State #{s}:\n#{@states[s].to_s}"
 		}
 
