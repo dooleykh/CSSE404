@@ -1,7 +1,7 @@
 require_relative 'turing.rb'
 
 BitWidth = 32
-TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :args, :ret]
+TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :ra, :args, :ret]
 NameLength = 5
 
 $nextState = 0
@@ -101,6 +101,7 @@ def writeConstant(tape, int)
 	# p m.last
 	# puts '----------'
 
+	m2 = moveDistance(tape, BitWidth - 1, :right)
 	m3 = SubMachine.empty 'WCons'
 	a = Array.new
 	(0..(BitWidth-1)).each {|i|
@@ -115,7 +116,9 @@ def writeConstant(tape, int)
 	m3.states[m3.first] = State.new [Transition.new( Hash.new, a, m3.last)]
 	m3.states[m3.last] = State.new []
 
-	m3
+	m2.simpleMerge m3
+
+	m2
 end
 
 # Moves a tape a certian distance
@@ -174,7 +177,82 @@ def copy(tape1, tape2)
 
 	m
 end
-								 
+
+# pushes space for a new value onto tape as in a stack. Doesn't actually write a new value.
+def push(tape)
+	m = moveDistance(tape, BitWidth, :right)
+	m2 = SubMachine.empty 'push'
+	m2.states[m2.first].transitions = [ Transition.new( Hash.new, [Action.new(:sep, tape), Action.new(:right, tape)], m2.last)]
+	m.simpleMerge(m2)
+	m
+end
+
+# deletes the top value from tape, as in a stack.
+def pop(tape)
+	a = Array.new
+	# Move back to the stack seperator
+	a.push Action.new(:left, tape)
+
+	# Erase the stack seperator and the value
+	(BitWidth + 1).times{
+		a.push Action.new(BlankSymbol, tape)
+		a.push Action.new(:right, tape)
+	}
+
+	m = SubMachine.empty 'pop'
+	m.states[m.first].transitions = [Transition.new( Hash.new, a, m.last)]
+
+	# Now we're on top of the last bit of the prev. value on stack
+	m2 = moveDistance(tape, BitWidth - 1, :left)
+	m.simpleMerge(m2)
+
+	m
+end
+
+# Inverts the value on tape. Uses ra.
+def invert(tape)
+	m = SubMachine.empty 'invert'
+
+	n = Array.new
+	n.push m.first
+	(BitWidth-1).times{
+		n.push getNextState
+	}
+
+	n.each_index{ |i|
+		nextName = ''
+		if i == n.size - 1
+			nextName = m.last
+		else
+			nextName = n[i+1]
+		end
+
+		m.states[n[i]] = State.new([
+			Transition.new( {tape => 0}, [Action.new(1, tape), Action.new(:right, tape)], nextName),
+			Transition.new( {tape => 1}, [Action.new(0, tape), Action.new(:right, tape)], nextName)])
+	}
+
+	m2 = moveDistance(tape, BitWidth, :left)
+	m3 = writeConstant(:ra, 1)
+	m4 = add(tape, :ra)
+
+	m.simpleMerge(m2)
+	m.simpleMerge(m3)
+	m.simpleMerge(m4)
+
+	m
+end
+
+# subtracts tape2 from tape1
+def sub(tape1, tape2)
+	m = invert(tape2)
+	m.simpleMerge add(tape1, tape2)
+	m.simpleMerge invert(tape2)
+
+	m
+end
+
+# Adds tape2 to tape1
 def add(tape1, tape2)
 	m = moveDistance(tape2, BitWidth - 1, :right)
 	m2 = moveDistance(tape1,  BitWidth - 1, :right)
@@ -198,15 +276,15 @@ def add(tape1, tape2)
 		
 		m3.states[n1[i]] = State.new([
 			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
+			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
 
 		m3.states[n2[i]] = State.new([
-			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
-			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(0, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
-			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(1, tape2), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
+			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
 	}
 
 	newLast = getNextState
@@ -222,14 +300,13 @@ def add(tape1, tape2)
 end
 
 if __FILE__ == $PROGRAM_NAME
-	m = writeConstant(:acc, 31)
-	m2 = writeConstant(:r0, 8)
-	m3 = add(:r0, :acc)
-	m.simpleMerge(m2)
-	m.simpleMerge(m3)
-	m4 = copy(:acc, :output)
-	m.simpleMerge(m4)
+	m = writeConstant(:acc, 32)
+	m.simpleMerge writeConstant(:r0, 5)
+	m.simpleMerge sub(:acc, :r0)
+	m.simpleMerge copy(:acc, :output)
 	m.finalize
+
+
 	print m.to_s
 	m.runAnimated nil
 end
