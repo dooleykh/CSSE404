@@ -11,13 +11,19 @@ Class definitions are not stored - the compiler knows the relevant offsets
 and 
 
 :objects contains all the existant objects
+|:loc|locnumber|:classname|:var|value|:var|value...
 
 :call contains the callstack
 
 :stack contains the arithmetic stack
 
 :acc, :r0, :r1, :r2, :r3 are registers
+expressions leave their result in :acc
 
 :args is the arguments to a procedure, :ret is the return value
 (at the beginning of a procedure, we remove the arguments from :args and
 put them in local environment)
+
+
+TODO: we can drastically cut down on machine size by having the operators
+go until a seperator (read - not 0 or 1) instead of having BitWidth states.

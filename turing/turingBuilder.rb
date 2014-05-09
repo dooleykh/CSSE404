@@ -85,7 +85,104 @@ class SubMachine < Machine
 			@tapes[n] = Tape.new(Array.new)
 		}
 	end
+end
 
+class ForkSubMachine < Machine
+	@first
+	@lastTrue
+	@lastFalse
+	@last
+
+	attr_accessor :first, :lastTrue, :lastFalse
+
+	# Merges the other machine's states into this one (and its tapes, but there shouldn't be any yet)
+	# doesn't update first, last, or link the machines.
+	def merge(otherMachine)
+		@states.merge!(otherMachine.states)
+	end
+
+	# Merges the other machine into this one such that it happens immediately after this one.
+	def mergeTrue(otherMachine)
+		self.merge(otherMachine)
+		link(states[lastTrue], otherMachine.first)
+		@lastTrue = otherMachine.last
+	end
+
+	# Merges the other machine into this one such that it happens immediately after this one.
+	def mergeFalse(otherMachine)
+		self.merge(otherMachine)
+		link(states[lastFalse], otherMachine.first)
+		@lastFalse = otherMachine.last
+	end
+
+	def self.empty(label = nil)
+		m = ForkSubMachine.new(nil, nil)
+		m.states = Hash.new
+		if label
+			labelNo = getLabelNo label
+			m.first = getNextState "#{label}-#{labelNo}-first"
+			m.lastFalse = getNextState "#{label}-#{labelNo}-lastFalse"
+			m.lastTrue = getNextState "#{label}-#{labelNo}-lastTrue"
+		else
+			m.first = getNextState
+			m.lastFalse = getNextState
+			m.lastTrue = getNextState
+			m.last = nil
+		end
+		m.states[m.lastFalse] = State.new ( Array.new )
+		m.states[m.lastTrue] = State.new ( Array.new )
+		m.states[m.first] = State.new ( Array.new )
+		return m
+	end
+
+	#Fuses the two paths of execution into one, returns machine that does that.
+	def join
+		m = SubMachine.empty('join')
+		m.merge self
+		m.states[m.first].transitions = [Transition.new (Hash.new, Array.new, @first)]
+
+		@states[@lastTrue].transitions = [Transition.new ( Hash.new, Array.new, m.last ) ]
+		@states[@lastFalse].transitions = [Transition.new ( Hash.new, Array.new, m.last ) ]
+
+		return m
+	end
+end
+
+# If the values of the two tapes are equal
+def eq(tape1, tape2)
+	m = ForkSubMachine.empty 'eq'
+
+	n = Array.new
+	n.push m.first
+	(BitWidth - 1).times { n.push getNextState }
+
+	n.each_index{|i|
+		trueActions = [Action.new(:right, tape1), Action.new(:right, tape2)]
+		falseActions = Array.new
+		i.times{ 
+			falseActions.push Action.new(:left, tape1)
+			falseActions.push Action.new(:left, tape2)
+		}
+
+		nextState = nil
+		if(i == n.size()-1)
+			nextState = n[i+1]
+		else
+			nextState = m.lastTrue
+		end
+
+		m.states[n[i]] = State.new([
+			Transition.new( {tape1 => 0, tape2 => 0}, trueActions, nextState),
+			Transition.new( {tape1 => 0, tape2 => 1}, falseActions, m.lastFalse),
+			Transition.new( {tape1 => 1, tape2 => 0}, falseActions, m.lastFalse),
+			Transition.new( {tape1 => 1, tape2 => 1}, trueActions, nextState)])
+	}
+
+	m2 = moveDistance(tape1, BitWidth, :right)
+	m3 = moveDistance(tape2, BitWidth, :right)
+
+	m.mergeTrue m2
+	m.mergeTrue m3
 end
 
 # Write a constant int to the tape, starting on the current position.
@@ -209,6 +306,16 @@ def pop(tape)
 	m
 end
 
+def output(tape)
+	m = copy(tape, :output)
+	m2 = SubMachine.empty
+	m2.states[m2.first].transitions = [ Transition.new( Hash.new, [Action.new(:print, :output)], m2.last) ]
+
+	m.simpleMerge m2
+
+	m
+end
+
 # Inverts the value on tape. Uses ra.
 def invert(tape)
 	m = SubMachine.empty 'invert'
@@ -303,10 +410,10 @@ if __FILE__ == $PROGRAM_NAME
 	m = writeConstant(:acc, 32)
 	m.simpleMerge writeConstant(:r0, 5)
 	m.simpleMerge sub(:acc, :r0)
-	m.simpleMerge copy(:acc, :output)
+	m.simpleMerge output(:acc)
 	m.finalize
 
 
-	print m.to_s
+	#print m.to_s
 	m.runAnimated nil
 end
