@@ -1,7 +1,7 @@
 require_relative 'turing.rb'
 
 BitWidth = 32
-TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :ra, :args, :ret]
+TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :ra, :rb, :rc, :args, :ret]
 NameLength = 5
 
 $nextState = 0
@@ -91,7 +91,6 @@ class ForkSubMachine < Machine
 	@first
 	@lastTrue
 	@lastFalse
-	@last
 
 	attr_accessor :first, :lastTrue, :lastFalse
 
@@ -99,6 +98,15 @@ class ForkSubMachine < Machine
 	# doesn't update first, last, or link the machines.
 	def merge(otherMachine)
 		@states.merge!(otherMachine.states)
+	end
+
+	# Merges the other machine into this one such that it happens immediately before this one
+	def simpleMergeAfter(otherMachine)
+		self.merge(otherMachine)
+		link(otherMachine.states[otherMachine.last], @first)
+		@first = otherMachine.first
+
+		self
 	end
 
 	# Merges the other machine into this one such that it happens immediately after this one.
@@ -139,10 +147,10 @@ class ForkSubMachine < Machine
 	def join
 		m = SubMachine.empty('join')
 		m.merge self
-		m.states[m.first].transitions = [Transition.new (Hash.new, Array.new, @first)]
+		m.states[m.first].transitions = [Transition.new(Hash.new, Array.new, @first)]
 
-		@states[@lastTrue].transitions = [Transition.new ( Hash.new, Array.new, m.last ) ]
-		@states[@lastFalse].transitions = [Transition.new ( Hash.new, Array.new, m.last ) ]
+		@states[@lastTrue].transitions = [Transition.new(Hash.new, Array.new, m.last ) ]
+		@states[@lastFalse].transitions = [Transition.new(Hash.new, Array.new, m.last ) ]
 
 		return m
 	end
@@ -165,7 +173,7 @@ def eq(tape1, tape2)
 		}
 
 		nextState = nil
-		if(i == n.size()-1)
+		if(i < n.size()-1)
 			nextState = n[i+1]
 		else
 			nextState = m.lastTrue
@@ -178,11 +186,22 @@ def eq(tape1, tape2)
 			Transition.new( {tape1 => 1, tape2 => 1}, trueActions, nextState)])
 	}
 
-	m2 = moveDistance(tape1, BitWidth, :right)
-	m3 = moveDistance(tape2, BitWidth, :right)
+	m2 = moveDistance(tape1, BitWidth, :left)
+	m3 = moveDistance(tape2, BitWidth, :left)
 
 	m.mergeTrue m2
 	m.mergeTrue m3
+
+	m
+end
+
+# if the value on the tape is positive
+def pos(tape)
+	m = ForkSubMachine.empty 'pos'
+	m.states[m.first] = State.new([
+		Transition.new( {tape => 0}, Array.new, m.lastTrue ),
+		Transition.new( {tape => 1}, Array.new, m.lastFalse )])
+	return m
 end
 
 # Write a constant int to the tape, starting on the current position.
@@ -350,11 +369,37 @@ def invert(tape)
 	m
 end
 
-# subtracts tape2 from tape1
+# subtracts tape2 from tape1. Uses ra
 def sub(tape1, tape2)
 	m = invert(tape2)
 	m.simpleMerge add(tape1, tape2)
 	m.simpleMerge invert(tape2)
+
+	m
+end
+
+# multiplies tape1 by tape2. Uses ra, rb
+def mult(tape1, tape2)
+	setup = writeConstant(:rb, 1)
+	setup.simpleMerge invert(:rb)
+	# rb = -1
+	setup.simpleMerge copy(tape1, :ra)
+	# ra = tape2
+	setup.simpleMerge writeConstant(tape1, 0)
+
+	loopM = add(:ra, :rb)
+	loopM = pos(:ra).simpleMergeAfter(loopM)
+	loopM.mergeTrue add(tape1, tape2)
+
+	m = SubMachine.empty 'mult'
+	m.merge setup
+	m.merge loopM
+
+	link(m.states[m.first], setup.first)
+	link(setup.states[setup.last], loopM.first)
+	link(loopM.states[loopM.lastFalse], m.last)
+	link(loopM.states[loopM.lastTrue], loopM.first)
+
 
 	m
 end
@@ -407,12 +452,11 @@ def add(tape1, tape2)
 end
 
 if __FILE__ == $PROGRAM_NAME
-	m = writeConstant(:acc, 32)
-	m.simpleMerge writeConstant(:r0, 5)
-	m.simpleMerge sub(:acc, :r0)
+	m = writeConstant(:acc, 167)
+	m.simpleMerge writeConstant(:r0, 35)
+	m.simpleMerge mult(:acc, :r0)
 	m.simpleMerge output(:acc)
 	m.finalize
-
 
 	#print m.to_s
 	m.runAnimated nil

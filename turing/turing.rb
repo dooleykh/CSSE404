@@ -1,5 +1,5 @@
 BlankSymbol = :blank
-AnimationDelay = 0.1
+AnimationDelay = 0.05
 
 class Machine
 	@tapes
@@ -33,7 +33,10 @@ class Machine
 		
 		while !@halted
 			while Time.now < lastTime + AnimationDelay
-				sleep (lastTime + AnimationDelay) - Time.now
+				a = (lastTime + AnimationDelay) - Time.now
+				if a > 0
+					sleep a
+				end
 			end
 			lastTime = Time.now
 
