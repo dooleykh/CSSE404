@@ -392,11 +392,11 @@ def compileExpr(tree, env)
 	when :Expr9
 		case tree.type
 		when :new
-			return 'todo'
+			return newObject(:acc, $GlobalEnv[tree.value])
 		when :id
-			return 'todo'
+			return getVar(:acc, tree.value)
 		when :this
-			return 'todo'
+			return getVar(:acc, :this)
 		when :integer
 			return writeConstant(:acc, tree.value)
 		when :null
@@ -415,6 +415,159 @@ def compileExpr(tree, env)
 		end
 
 		return 'todo'
+
+	when :Expr7
+		m = compileExpr(tree.children[0], env)
+		if tree.type == :-
+			m.simpleMerge invert(:acc)
+		elsif tree.type == :!
+			m2 = writeConstant(:ra, 0)
+			m3 = eq(:ra, :acc)
+			m3.mergeTrue writeConstant(:acc, 1)
+			m3.mergeFalse writeConstant(:acc, 0)
+
+			m.simpleMerge m2
+			m.simpleMerge m3.join
+		end
+
+		return m
+
+	when :Expr6
+		m = compileExpr(tree.children[0], env)
+		
+		if tree.children.size == 1
+			return m
+		end
+
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
+
+		m.simpleMerge compileExpression(tree.children[1], env)
+
+		if tree.type == :/
+			return 'todo'
+		end
+
+		m.simpleMerge mult(:acc, :stack)
+		m.simpleMerge pop(:stack)
+
+		return m
+		
+	when :Expr5
+		m = compileExpr(tree.children[0], env)
+
+		if tree.children.size == 1
+			return m
+		end
+
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
+
+		m.simpleMerge compileExpression(tree.children[1], env)
+
+		if tree.type == :+
+			m.simpleMerge add(:acc, :stack)
+		else
+			m.simpleMerge sub(:acc, :stack)
+		end
+
+		m.simpleMerge pop(:stack)
+
+		return m
+
+	when :Expr4
+		m = compileExpr(tree.children[0], env)
+
+		if tree.children.size == 1
+			return m
+		else
+			return 'todo'
+		end
+
+	when :Expr3
+		m = compileExpr(tree.children[0], env)
+
+		if tree.children.size == 1
+			return m
+		end
+
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
+
+		m.simpleMerge compileExpression(tree.children[1], env)
+
+		if tree.type == :==
+			m2 = eq(:acc, :stack)
+			m2.mergeTrue writeConstant(:acc, 1)
+			m2.mergeFalse writeConstant(:acc, 0)
+			m.simpleMerge m2.join
+		else
+			m2 = eq(:acc, :stack)
+			m2.mergeTrue writeConstant(:acc, 0)
+			m2.mergeFalse writeConstant(:acc, 1)
+			m.simpleMerge m2.join
+		end
+
+		m.simpleMerge pop(:stack)
+
+		return m
+
+	when :Expr2
+		m = compileExpr(tree.children[0], env)
+
+		if tree.children.size == 1
+			return m
+		end
+
+		m.simpleMerge writeConstant(:ra, 0)
+		m = eq(:ra, :acc).mergeAfter m
+		m.mergeTrue writeConstant(:acc, 0)
+
+		m.mergeFalse compileExpression(tree.children[1], env)
+
+		m2 = eq(:ra, :acc)
+		m2.mergeFalse writeConstant(:acc, 1)
+		m2.mergeTrue writeConstant(:acc, 0)
+		m2 = m2.join
+
+		m.mergeFalse m2
+
+		m = m.join
+
+		return m
+
+	when :Expr
+		m = compileExpr(tree.children[0], env)
+
+		if tree.children.size == 1
+			return m
+		end
+
+		m.simpleMerge writeConstant(:ra, 0)
+		m = eq(:ra, :acc).mergeAfter m
+		m.mergeFalse writeConstant(:acc, 1)
+
+		m.mergeTrue compileExpression(tree.children[1], env)
+
+		m2 = eq(:ra, :acc)
+		m2.mergeTrue writeConstant(:acc, 0)
+		m2.mergeFalse writeConstant(:acc, 1)
+		m2 = m2.join
+
+		m.mergeTrue m2
+
+		m = m.join
+
+		return m
+	end
+end
+
+
+
+
+
+
+			
 
 
 

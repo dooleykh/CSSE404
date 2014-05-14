@@ -156,6 +156,117 @@ class ForkSubMachine < Machine
 	end
 end
 
+def writeSymbol(tape, symbol)
+	m = SubMachine.empty 'write'
+	m.states[m.first].transitions = Transition.new( Hash.new, [Action.new(symbol, tape), Action.new(:right, tape)], m.last)
+	return m
+end
+
+
+# makes a new instance of given class, leaving a reference to it on tape. Uses tape and ra
+def newObject(tape, javaClass)
+	m = scan(:objects, :right, BlankSymbol)
+	m.simpleMerge scanBefore(:objects, :left, :loc)
+	m.simpleMerge copy(:objects, tape)
+	m.simpleMerge writeConstant(:ra, 1)
+	m.simpleMerge add(tape, :ra)
+	m.simpleMerge scan(:objects, :right, BlankSymbol)
+	m.simpleMerge writeSymbol(:objects, :loc)
+	m.simpleMerge copy(:ra, :objects)
+	
+	javaClass.env.each_key { |k|
+		unless javaClass.env[k].class == JavaVariable
+			next
+		end
+
+		m.simpleMerge writeSymbol(:objects, k)
+		m.simpleMerge writeConstant(:objects, 0)
+		m.simpleMerge moveDistance(:objects, BitWidth, :right)
+	}
+
+	m
+end
+
+# gets the value of variable, copies it to tape.
+# todo so much debugging
+def getVar(tape, name)
+	mFoundEnv = SubMachine.empty 'lookup3'
+	mFoundEnv.simpleMerge copy(:env, tape)
+
+	# Scan to end of env
+	mNotFound = SubMachine.empty 'lookup4'
+	mNotFound = scan(:env, :right, BlankSymbol)
+
+	# look for this in env
+	mNotFound.simpleMerge scanBefore(:env, :left, :this)
+
+	# copy reference to current class
+	mNotFound.simpleMerge copy(:env, tape)
+
+	# scan to front of objects
+	mNotFound.simpleMerge scan(:objects, :left, BlankSymbol)
+
+
+	# Scans for the right reference
+	mNF2 = SubMachine.empty 'lookupThis'
+
+	# checks if we're at the right reference
+	checkLoc = eq(tape, :objects)
+	link(checkLoc.states[checkLoc.lastFalse], mNF2.first)
+	checkLoc.simpleMergeTrue copy(:objects, tape)
+	link(checkLoc.states[checkLoc.lastTrue], mNF2.last)
+
+	errorState = SubMachine.empty 'lookupError'
+	errorState.simpleMerge writeConstant(:output, 1)
+	errorState.simpleMerge invert(:output)
+	errorState.simpleMerge output(:output)
+	es2 = SubMachine.empty 'lookupErrorHalt'
+	es2.states[es2.first].transitions = [
+		Transition.new( Hash.new, [Action.new(:halt, nil)], es2.last)]
+	errorState.simpleMerge es2
+	
+	mNF2.states[mNF2.first].transitions = [
+		Transition.new({:objects=>:loc}, [Action.new(:right, :objects)], checkLoc.first ),
+		Transition.new({:objects=>BlankSymbol}, Array.new, errorState.first ),
+		Transition.new(Hash.new, [Action.new(:right, :objects)], mNF2.first)]
+	
+	mNF2.merge errorState
+	mNF2.merge checkLoc
+
+
+	# at this point mNotFound goes to the object that we're in
+	mNotFound.simpleMerge mNF2
+
+	mFoundObjects = copy(:objects, tape)
+
+	mNF3 = SubMachine.empty 'lookupInObject'
+	mNF3.states[mNF3.first].transitions = [
+		Transition.new( {:objects => name}, [Action.new(:right, :objects)], mFoundObjects.first),
+		Transition.new( Hash.new, [Action.new(:right, :objects)], mNF3.first)]
+	mNF3.merge mFoundObjects
+	link(mFoundObjects.states[mFoundObjects.last], mNF3.last)
+
+	mNotFound.simpleMerge mNF3
+
+	# Go to end of env
+	m = scan(:env, :right, BlankSymbol)
+
+	# look for var in env
+	m2 = SubMachine.empty 'lookup2'
+	m2.merge mFoundEnv
+	link(mFoundEnv[mFoundEnv.last], m2.last)
+	m2.merge mNotFound
+	link(mNotFound[mNotFound.last], m2.last)
+	m2.states[m.first].transitions = [
+		Transition.new( {:env=> :methodScope}, Array.new, mNotFound.first),
+		Transition.new( {:env=> name}, [Action.new(:right, :env)], mFoundEnv.first),
+		Transition.new( Hash.new, [Action.new(:left, :env)], m2.first)]
+	m.simpleMerge m2
+
+	m
+
+end
+	
 # If the values of the two tapes are equal
 def eq(tape1, tape2)
 	m = ForkSubMachine.empty 'eq'
@@ -206,17 +317,6 @@ end
 
 # Write a constant int to the tape, starting on the current position.
 def writeConstant(tape, int)
-	# m = scanLeft(tape)
-
-	# m2 = moveDistance(tape, BitWidth, :right)
-	# m.simpleMerge(m2)
-
-	# puts '----------'
-	# print m.to_s
-	# p m.first
-	# p m.last
-	# puts '----------'
-
 	m2 = moveDistance(tape, BitWidth - 1, :right)
 	m3 = SubMachine.empty 'WCons'
 	a = Array.new
@@ -249,19 +349,31 @@ def moveDistance(tape, dist, direction)
 	m
 end
 
-# Scans the tape left, stopping on the last non blank symbol
-def scanLeft(tape)
-	m = SubMachine.empty 'scanL'
+# Scans the tape, stopping on the first instance of symbol
+def scan(tape, direction, symbol)
+	m = SubMachine.empty 'scan'
 
 	m.states = {
 		m.first => State.new(
-			[Transition.new( {tape => BlankSymbol}, [Action.new(:right, tape)], m.last),
-			Transition.new( Hash.new , [Action.new(:left, tape)], m.first)]),
+			[Transition.new( {tape => symbol}, Array.new, m.last),
+			Transition.new( Hash.new , [Action.new(direction, tape)], m.first)]),
 		m.last => State.new( Array.new )
 	}
 
 	m
 end
+
+def scanBefore(tape, direction, symbol)
+	oppdir = :right
+	oppdir = :left if direction== :right
+	
+	m = scan(tape, direction, symbol)
+	m2 = moveDistance(tape, 1, oppdir)
+	m.simpleMerge m2
+
+	m
+end
+
 
 # copies BitWidth symbols from tape1 to tape2
 def copy(tape1, tape2)
@@ -452,12 +564,12 @@ def add(tape1, tape2)
 end
 
 if __FILE__ == $PROGRAM_NAME
-	m = writeConstant(:acc, 167)
-	m.simpleMerge writeConstant(:r0, 35)
+	m = writeConstant(:acc, 5)
+	m.simpleMerge writeConstant(:r0, 5)
 	m.simpleMerge mult(:acc, :r0)
 	m.simpleMerge output(:acc)
 	m.finalize
 
-	#print m.to_s
-	m.runAnimated nil
+	print m.to_s
+	m.run nil
 end

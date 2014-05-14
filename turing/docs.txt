@@ -2,28 +2,26 @@ Tapes:
 
 default position of head is at the front of a variable
 
-:env contains the current environment, much like its handled in the
-typechecker, except that the names are not stored- the compiler remembers
-the offset.
-|:var|value|:var|value|:scope|:var|value|:var|value|
+:env is basically as in PLC
+:scope|:varname|value|:varname|value|:scope|:varname|value|:varname|value|:methodScope|
 
 Class definitions are not stored - the compiler knows the relevant offsets
-and 
 
 :objects contains all the existant objects
-|:loc|locnumber|:classname|:var|value|:var|value...
+|:loc|address|:varname|value|:varname|value|:loc|address|:varname|value
 
-:call contains the callstack
+:call contains the return addresses
 
 :stack contains the arithmetic stack
 
-:acc, :r0, :r1, :r2, :r3 are registers
-expressions leave their result in :acc
+:acc is where the result of an expression is put
+:ra, :rb, :rc are intermediate values for turingBuilder
 
 :args is the arguments to a procedure, :ret is the return value
 (at the beginning of a procedure, we remove the arguments from :args and
 put them in local environment)
 
-
 TODO: we can drastically cut down on machine size by having the operators
 go until a seperator (read - not 0 or 1) instead of having BitWidth states.
+
+Other optimizations
