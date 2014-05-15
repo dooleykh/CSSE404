@@ -8,6 +8,9 @@ $nextState = 0
 $labelDict = Hash.new
 
 
+
+
+
 def getLabelNo(label)
 	unless $labelDict[label]
 		$labelDict[label] = -1
@@ -86,6 +89,34 @@ class SubMachine < Machine
 		}
 	end
 end
+
+class GotoState < Machine
+	@labels
+	@first
+	@last
+
+	def initialize
+		@labels = Hash.new
+		@first = getNextState
+		@last = getNextState
+		@states = Hash.new
+		@states[@last] = State.new ( Array.new )
+		@states[@first] = State.new ( Array.new )
+	end
+
+	def register(stateName)
+		@labels.push stateName
+	end
+
+	def finalize
+		@labels.each{ |l|
+			@states[@first].transitions.push(
+				Transition.new( {:call=>l}, [Action.new(BlankSymbol, :call), Action.new(:left, :call)], l))}
+	end	
+
+end
+
+Goto = GotoState.new
 
 class ForkSubMachine < Machine
 	@first
@@ -187,11 +218,12 @@ def newObject(tape, javaClass)
 	m
 end
 
-# gets the value of variable, copies it to tape.
+# gets the value of variable, copies it to tape. If found on :object , writes 1 to ra, else writes 0.
 # todo so much debugging
 def getVar(tape, name)
 	mFoundEnv = SubMachine.empty 'lookup3'
 	mFoundEnv.simpleMerge copy(:env, tape)
+	mFoundEvn.simpleMerge writeConstant(:ra, 0)
 
 	# Scan to end of env
 	mNotFound = SubMachine.empty 'lookup4'
@@ -214,6 +246,7 @@ def getVar(tape, name)
 	checkLoc = eq(tape, :objects)
 	link(checkLoc.states[checkLoc.lastFalse], mNF2.first)
 	checkLoc.simpleMergeTrue copy(:objects, tape)
+	checkLoc.simpleMergeTrue writeConstant(:ra, 1)
 	link(checkLoc.states[checkLoc.lastTrue], mNF2.last)
 
 	errorState = SubMachine.empty 'lookupError'
@@ -567,13 +600,25 @@ def createScope()
   return scan(:env. :right, BlankSymbol).simpleMerge(writeSymbol(:env, :scope))
 end
 
+def createMethodScope()
+  return scan(:env. :right, BlankSymbol).simpleMerge(writeSymbol(:env, :methodScope))
+end
+
 def destroyScope()
   m = scanBefore(:env, :right, BlankSymbol)
   m2 = SubMachine.empty 'DestroyScope'
   m2.states[m2.first].transitions = [Transition.new({:env => :scope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]]
+  m.simpleMerge m2
+  return m
+end
 
-m.simpleMerge m2
-return m
+def destroyMethodScope()
+  m = scanBefore(:env, :right, BlankSymbol)
+  m2 = SubMachine.empty 'DestroyMethodScope'
+  m2.states[m2.first].transitions = [Transition.new({:env => :methodScope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]]
+
+	m.simpleMerge m2
+	return m
 end
 
 if __FILE__ == $PROGRAM_NAME

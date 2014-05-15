@@ -387,6 +387,7 @@ def mathTypes(typeA, typeB)
 	end
 end
 
+# compiles only one statement
 def compileExpr(tree, env)
 	case tree.name
 	when :Expr9
@@ -410,11 +411,56 @@ def compileExpr(tree, env)
 		end
 
 	when :Expr8
-		if tree.children.length == 1
-			return compileExpr(tree.children[0], env)
+
+		m = compileExpr(tree.children[0], env)
+		type = resolveExprType(tree.children[0], env)
+
+		tree = tree.children[1]
+
+		while tree != nil
+			methodObject = $GlobalEnv[type].env[tree.children[0]]
+
+			argtree = tree.children[1].children[0]
+			methodObject.argnames.each{ |n|
+				m.simpleMerge writeSymbol(:env, n)
+				m.simpleMerge compileExpr(argreee.children[0], env)
+				argtree = argtree.children[1]
+				m.simpleMerge push(:stack)
+				m.simpleMerge copy(:acc, :stack)
+			}
+
+			m.simpleMerge createMethodScope
+			m.simpleMerge scan(:env, :right, BlankSymbol)
+			m.simpleMerge writeSymbol(:env, :this)
+			m.simpleMerge copy(:acc, :env)
+			m.simpleMerge createScope
+
+			methodObject.argnames.reverse.each{ |n|
+				m.simpleMerge scan(:env, :right, BlankSymbol)
+				m.simpleMerge writeSymbol(:env, n)
+				m.simpleMerge copy(:stack, :env)
+				m.simpleMerge pop(:stack)
+			}
+
+
+			m2 = destroyScope
+			m2.simpleMerge destroyMethodScope
+			Goto.register m2.first
+
+			m.simpleMerge moveDistance(:call, 1, :right)
+			m.simpleMerge writeSymbol(:call, m2.first)
+			m.simpleMerge moveDistance(:call, 1, :left)
+			link(m.states[m.last], methodObject.location)
+			m.last = m2.last
+			m.merge m2
+
+			tree = tree.children[2]
+			type = methodObject.ret
+
 		end
 
-		return 'todo'
+		return m
+
 
 	when :Expr7
 		m = compileExpr(tree.children[0], env)
@@ -560,11 +606,11 @@ def compileExpr(tree, env)
 
 		return m
     
-  when :StmtSt
-    m = SubMachine.empty 'StmtSt'
-    m.simpleMerge compileExpression(tree.children[0])
-    m.simpleMerge compileExpression(tree.children[1])
-    return m
+#  when :StmtSt
+#    m = SubMachine.empty 'StmtSt'
+#    m.simpleMerge compileExpression(tree.children[0])
+#    m.simpleMerge compileExpression(tree.children[1])
+#    return m
 
   when :Stmt
     case tree.type
@@ -597,8 +643,35 @@ def compileExpr(tree, env)
       link(m.states[m.lastTrue], m2.last)
       return m2
     when :var_asgn
+		m = compileExpr(tree.children[1], env)
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
+
+		m.simpleMerge getVar(:ra, tree.children[0].value)
+		m.simpleMerge copy(:stack, :acc)
+		m.simpleMerge pop(:stack)
+
+		m.simpleMerge writeConstant(:rb, 0)
+		m = eq(:ra, :rb).simpleMergeAfter m
+		m.mergeTrue copy(:acc, :env)
+		m.mergeFalse copy(:acc, :objects)
+
+		return m.join
       
     when :var_dec
+		m = compileExpr(tree.children[2], env)
+		m.simpleMerge scan(:env, :right, BlankSymbol)
+		m.simpleMerge writeSymbol(:env, tree.children[1].value)
+		m.simpleMerge copy(:acc, :env)
+
+		return m
+
+	when :print
+		m = compileExpr(tree.children[0], env)
+		m.simpleMerge copy(:acc, :output)
+		m.simpleMerge output(:output)
+
+		return m
 
     end
 	end
