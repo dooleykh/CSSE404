@@ -563,6 +563,19 @@ def add(tape1, tape2)
 	m
 end
 
+def createScope()
+  return scan(:env. :right, BlankSymbol).simpleMerge(writeSymbol(:env, :scope))
+end
+
+def destroyScope()
+  m = scanBefore(:env, :right, BlankSymbol)
+  m2 = SubMachine.empty 'DestroyScope'
+  m2.states[m2.first].transitions = [Transition.new({:env => :scope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]]
+
+m.simpleMerge m2
+return m
+end
+
 if __FILE__ == $PROGRAM_NAME
 	m = writeConstant(:acc, 5)
 	m.simpleMerge writeConstant(:r0, 5)

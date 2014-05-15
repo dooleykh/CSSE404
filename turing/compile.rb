@@ -559,6 +559,48 @@ def compileExpr(tree, env)
 		m = m.join
 
 		return m
+    
+  when :StmtSt
+    m = SubMachine.empty 'StmtSt'
+    m.simpleMerge compileExpression(tree.children[0])
+    m.simpleMerge compileExpression(tree.children[1])
+    return m
+
+  when :Stmt
+    case tree.type
+    when :block
+      m = SubMachine.empty 'Stmt: block'
+      m.simpleMerge createScope
+      m.simpleMerge compileExpression(tree.children[0])
+      m.simpleMerge destroyScope
+      return m
+    when :if
+      expr = compileExpression(tree.children[0])
+      if_true = compileExpression(tree.children[1])
+      if_false = compileExpression(tree.children[2])
+
+      m = writeConstant(:ra, 0)
+      m.simpleMerge eq(:acc, :ra)
+      m.simpleMergeAfter(expr)
+      m.mergeTrue if_false
+      m.mergeFalse if_true
+      return m.join
+    when :while
+      m = SubMachine.empty
+      m.simpleMerge compileExpr(tree.children[0])
+      m.simpleMerge writeConstant(:ra, 0)
+      m = eq(:acc, :ra).simpleMergeAfter m
+      m.mergeFalse compileExpr(tree.children[1])
+      m2 = SubMachine.empty
+      link(m.states[m.lastFalse], m2.first)
+      m2.simpleMerge m 'Stmt: while'
+      link(m.states[m.lastTrue], m2.last)
+      return m2
+    when :var_asgn
+      
+    when :var_dec
+
+    end
 	end
 end
 
