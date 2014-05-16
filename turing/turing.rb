@@ -17,10 +17,12 @@ class Machine
 		@halted = false
 	end
 
-	def run(input, delay = nil)
+	def run(input, delay = nil, names = false)
 		lastTime = Time.now
 		state = :start
-		printState state
+		unless delay == nil
+			printState state
+		end
 		
 		
 		while !@halted
@@ -34,7 +36,9 @@ class Machine
 				lastTime = Time.now
 			end
 
-
+			if names
+				puts state
+			end
 			state = @states[state].nextState(self)
 			unless delay==nil
 				printState state

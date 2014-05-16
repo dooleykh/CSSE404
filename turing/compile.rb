@@ -43,8 +43,8 @@ def walk(tree, env)
 			tree.children.each { |c| walk(c, env) }
 
 			expr = compileExpr(tree.children[0])
-			if_true = compileExpr(tree.children[1])
-			if_false = compileExpr(tree.children[2])
+			if_true = walk(tree.children[1])
+			if_false = walk(tree.children[2])
 
 			m = writeConstant(:ra, 0)
 			m.simpleMerge eq(:acc, :ra)
@@ -57,14 +57,16 @@ def walk(tree, env)
 			tree.children.each { |c| walk(c, env) }
 
 		    m = SubMachine.stub 'while'
-		    m.simpleMerge compileExpr(tree.children[0])
+		    m.simpleMerge compileExpr(tree.children[0], env)
 		    m.simpleMerge writeConstant(:ra, 0)
 		    m = eq(:acc, :ra).simpleMergeAfter m
-		    m.mergeFalse compileExpr(tree.children[1])
-		    m2 = SubMachine.stub
-		    link(m.states[m.lastFalse], m2.first)
-		    m2.simpleMerge m 'Stmt: while'
+		    m.mergeFalse walk(tree.children[1], env)
+		    m2 = SubMachine.empty 'outer while'
+		    link(m.states[m.lastFalse], m.first)
 		    link(m.states[m.lastTrue], m2.last)
+			link(m2.states[m2.first], m.first)
+		    m2.merge m 
+
 		    return m2
 
 		when :var_dec
@@ -99,8 +101,8 @@ def walk(tree, env)
 				raise JavaSyntaxError
 		  	end
 
-		  	unless env.last[tree.children[0].value]
-			  	puts "ERROR - variable #{tree.children[0]} not already defined"
+		  	unless lookup(tree.children[0].value, env)
+			  	puts "ERROR - variable #{tree.children[0].value} not already defined"
 			  	$Failed = true
         		raise JavaSyntaxError
 		  	end
@@ -839,10 +841,10 @@ if __FILE__ == $PROGRAM_NAME
   unless $Failed
 	  puts "Y'okay!"
 	  puts 'running machine'
-	  print machine.to_s
+	  #print machine.to_s
 
 
-	  machine.run(nil, 0.1)
+	  machine.run(nil,nil,nil)
   end
 
 end

@@ -389,7 +389,7 @@ end
 def writeConstant(tape, int)
 	m2 = SubMachine.stub "writeConstant-#{tape},#{int}"
 	m2.simpleMerge moveDistance(tape, BitWidth - 1, :right)
-	m3 = SubMachine.empty 'WCons'
+	m3 = SubMachine.empty 
 	a = Array.new
 	(0..(BitWidth-1)).each {|i|
 		val = int % 2
