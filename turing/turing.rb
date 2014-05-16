@@ -1,5 +1,4 @@
 BlankSymbol = :blank
-AnimationDelay = 0.05
 
 class Machine
 	@tapes
@@ -18,31 +17,28 @@ class Machine
 		@halted = false
 	end
 
-	def run(input)
-		state = states[:start]
-		while !@halted
-			state = @states[state.nextState(self)]
-		end
-	end
-
-	def runAnimated(input)
+	def run(input, delay = nil)
 		lastTime = Time.now
 		state = :start
 		printState state
 		
 		
 		while !@halted
-			while Time.now < lastTime + AnimationDelay
-				a = (lastTime + AnimationDelay) - Time.now
-				if a > 0
-					sleep a
+			unless delay == nil
+				while Time.now < lastTime + delay
+					a = (lastTime + delay) - Time.now
+					if a > 0
+						sleep a
+					end
 				end
+				lastTime = Time.now
 			end
-			lastTime = Time.now
 
 
 			state = @states[state].nextState(self)
-			printState state
+			unless delay==nil
+				printState state
+			end
 		end
 	end
 
@@ -316,7 +312,7 @@ if __FILE__ == $PROGRAM_NAME
 			:end)]),
 		:end => State.new(
 			[Transition.new(Hash.new, [Action.new(:halt, nil)], :end)])})
-	m.runAnimated nil
+	m.run nil
 	print m.to_s
 
 
@@ -347,6 +343,6 @@ if __FILE__ == $PROGRAM_NAME
 	# 		[Transition.new(Hash.new, [Action.new("d", :output)], :end)]),
 	# 	:end => State.new(
 	# 		[Transition.new(Hash.new, [Action.new(:print, :output), Action.new(:halt, nil)], :end)])})
-	# m.runAnimated nil
+	# m.run nil
 	# print m.to_s
 end

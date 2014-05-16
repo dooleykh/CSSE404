@@ -1,7 +1,7 @@
 require_relative 'turing.rb'
 
 BitWidth = 32
-TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :r0, :ra, :rb, :rc, :args, :ret]
+TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :ra, :rb, :rc, :args]
 NameLength = 5
 
 $nextState = 0
@@ -35,6 +35,27 @@ def getNextState(label = nil)
 	$nextState += 1
 	sym
 end
+
+def init
+	m = SubMachine.stub 'init'
+	m.simpleMerge writeConstant(:acc, 0)
+	m.simpleMerge writeConstant(:ra, 0)
+	m.simpleMerge writeConstant(:rb, 0)
+	m.simpleMerge writeConstant(:rc, 0)
+	m.simpleMerge writeSymbol(:objects, :loc)	
+	m.simpleMerge writeConstant(:objects, 0)
+	m.simpleMerge writeSymbol(:env, :methodScope)
+	m.simpleMerge writeConstant(:output, 0)
+
+	return m
+end
+
+def halt
+	m = SubMachine.stub 'halt'
+	m.states[m.first].transitions = [Transition.new( Hash.new, [Action.new(:halt, nil)], m.first)]
+	return m
+end
+
 
 # Makes state1 unconditionally point to state2 (for linking two submachines)
 # state1 is a state and state2 is a state name
@@ -80,9 +101,24 @@ class SubMachine < Machine
 		return m
 	end
 
+	def self.stub(label = nil)
+		m = SubMachine.new(nil, nil)
+		m.states = Hash.new
+		if label
+			labelNo = getLabelNo label
+			m.first = getNextState "#{label}-#{labelNo}-stub"
+			m.last = m.first
+		else
+			m.first = getNextState
+			m.last = m.first
+		end
+		m.states[m.first] = State.new ( Array.new )
+		return m
+	end
+
 	def finalize
 		@states[:start] = State.new( [Transition.new( Hash.new, Array.new, @first)] )
-		@states[@last].transitions = [Transition.new(Hash.new, [Action.new(:halt, nil)], @last)]
+		# @states[@last].transitions = [Transition.new(Hash.new, [Action.new(:halt, nil)], @last)]
 		@tapes = Hash.new
 		TapeNames.each{ |n|
 			@tapes[n] = Tape.new(Array.new)
@@ -97,8 +133,8 @@ class GotoState < Machine
 
 	def initialize
 		@labels = Hash.new
-		@first = getNextState
-		@last = getNextState
+		@first = getNextState 'goto-front'
+		@last = getNextState 'goto-end'
 		@states = Hash.new
 		@states[@last] = State.new ( Array.new )
 		@states[@first] = State.new ( Array.new )
@@ -188,15 +224,16 @@ class ForkSubMachine < Machine
 end
 
 def writeSymbol(tape, symbol)
-	m = SubMachine.empty 'write'
-	m.states[m.first].transitions = Transition.new( Hash.new, [Action.new(symbol, tape), Action.new(:right, tape)], m.last)
+	m = SubMachine.empty "writeSymbol-#{tape},#{symbol}"
+	m.states[m.first].transitions = [Transition.new( Hash.new, [Action.new(symbol, tape), Action.new(:right, tape)], m.last)]
 	return m
 end
 
 
 # makes a new instance of given class, leaving a reference to it on tape. Uses tape and ra
 def newObject(tape, javaClass)
-	m = scan(:objects, :right, BlankSymbol)
+	m = SubMachine.stub "newObject-#{tape},#{symbol}"
+	m.simpleMerge scan(:objects, :right, BlankSymbol)
 	m.simpleMerge scanBefore(:objects, :left, :loc)
 	m.simpleMerge copy(:objects, tape)
 	m.simpleMerge writeConstant(:ra, 1)
@@ -221,12 +258,11 @@ end
 # gets the value of variable, copies it to tape. If found on :object , writes 1 to ra, else writes 0.
 # todo so much debugging
 def getVar(tape, name)
-	mFoundEnv = SubMachine.empty 'lookup3'
+	mFoundEnv = SubMachine.stub 'lookup3'
 	mFoundEnv.simpleMerge copy(:env, tape)
 	mFoundEvn.simpleMerge writeConstant(:ra, 0)
 
 	# Scan to end of env
-	mNotFound = SubMachine.empty 'lookup4'
 	mNotFound = scan(:env, :right, BlankSymbol)
 
 	# look for this in env
@@ -282,7 +318,8 @@ def getVar(tape, name)
 	mNotFound.simpleMerge mNF3
 
 	# Go to end of env
-	m = scan(:env, :right, BlankSymbol)
+	m = Submachine.stub "getVar-#{tape},#{name}"
+	m.simpleMerge scan(:env, :right, BlankSymbol)
 
 	# look for var in env
 	m2 = SubMachine.empty 'lookup2'
@@ -302,7 +339,7 @@ end
 	
 # If the values of the two tapes are equal
 def eq(tape1, tape2)
-	m = ForkSubMachine.empty 'eq'
+	m = ForkSubMachine.empty "eq-#{tape1},#{tape2}"
 
 	n = Array.new
 	n.push m.first
@@ -341,7 +378,7 @@ end
 
 # if the value on the tape is positive
 def pos(tape)
-	m = ForkSubMachine.empty 'pos'
+	m = ForkSubMachine.empty "pos-#{tape}"
 	m.states[m.first] = State.new([
 		Transition.new( {tape => 0}, Array.new, m.lastTrue ),
 		Transition.new( {tape => 1}, Array.new, m.lastFalse )])
@@ -350,7 +387,8 @@ end
 
 # Write a constant int to the tape, starting on the current position.
 def writeConstant(tape, int)
-	m2 = moveDistance(tape, BitWidth - 1, :right)
+	m2 = SubMachine.stub "writeConstant-#{tape},#{int}"
+	m2.simpleMerge moveDistance(tape, BitWidth - 1, :right)
 	m3 = SubMachine.empty 'WCons'
 	a = Array.new
 	(0..(BitWidth-1)).each {|i|
@@ -372,7 +410,7 @@ end
 
 # Moves a tape a certian distance
 def moveDistance(tape, dist, direction)
-	m = SubMachine.empty 'mv'
+	m = SubMachine.empty "moveDistance-#{tape},#{dist},#{direction}"
 	a = Array.new
 	dist.times{ a.push Action.new(direction, tape) }
 
@@ -384,7 +422,7 @@ end
 
 # Scans the tape, stopping on the first instance of symbol
 def scan(tape, direction, symbol)
-	m = SubMachine.empty 'scan'
+	m = SubMachine.empty "scan-#{tape},#{direction},#{symbol}"
 
 	m.states = {
 		m.first => State.new(
@@ -400,7 +438,8 @@ def scanBefore(tape, direction, symbol)
 	oppdir = :right
 	oppdir = :left if direction== :right
 	
-	m = scan(tape, direction, symbol)
+	m = SubMachine.stub "scanBefore-#{tape},#{direction},#{symbol}"
+	m.simpleMerge scan(tape, direction, symbol)
 	m2 = moveDistance(tape, 1, oppdir)
 	m.simpleMerge m2
 
@@ -410,7 +449,7 @@ end
 
 # copies BitWidth symbols from tape1 to tape2
 def copy(tape1, tape2)
-	m = SubMachine.empty 'copy'
+	m = SubMachine.empty "copy-#{tape1},#{tape2}"
 	n = Array.new
 	n.push m.first
 	(BitWidth - 1).times{
@@ -441,7 +480,8 @@ end
 
 # pushes space for a new value onto tape as in a stack. Doesn't actually write a new value.
 def push(tape)
-	m = moveDistance(tape, BitWidth, :right)
+	m = SubMachine.stub "push-#{tape}"
+	m.simpleMerge moveDistance(tape, BitWidth, :right)
 	m2 = SubMachine.empty 'push'
 	m2.states[m2.first].transitions = [ Transition.new( Hash.new, [Action.new(:sep, tape), Action.new(:right, tape)], m2.last)]
 	m.simpleMerge(m2)
@@ -460,7 +500,7 @@ def pop(tape)
 		a.push Action.new(:right, tape)
 	}
 
-	m = SubMachine.empty 'pop'
+	m = SubMachine.empty "pop-#{tape}"
 	m.states[m.first].transitions = [Transition.new( Hash.new, a, m.last)]
 
 	# Now we're on top of the last bit of the prev. value on stack
@@ -471,7 +511,8 @@ def pop(tape)
 end
 
 def output(tape)
-	m = copy(tape, :output)
+	m = SubMachine.stub "output-#{tape}"
+	m.simpleMerge copy(tape, :output)
 	m2 = SubMachine.empty
 	m2.states[m2.first].transitions = [ Transition.new( Hash.new, [Action.new(:print, :output)], m2.last) ]
 
@@ -482,7 +523,7 @@ end
 
 # Inverts the value on tape. Uses ra.
 def invert(tape)
-	m = SubMachine.empty 'invert'
+	m = SubMachine.empty "invert-#{tape}"
 
 	n = Array.new
 	n.push m.first
@@ -516,7 +557,8 @@ end
 
 # subtracts tape2 from tape1. Uses ra
 def sub(tape1, tape2)
-	m = invert(tape2)
+	m = SubMachine.stub "sub-#{tape1},#{tape2}"
+	m.simpleMerge invert(tape2)
 	m.simpleMerge add(tape1, tape2)
 	m.simpleMerge invert(tape2)
 
@@ -525,7 +567,8 @@ end
 
 # multiplies tape1 by tape2. Uses ra, rb
 def mult(tape1, tape2)
-	setup = writeConstant(:rb, 1)
+	setup = SubMachine.stub "mult-#{tape1},#{tape2}"
+	setup.simpleMerge writeConstant(:rb, 1)
 	setup.simpleMerge invert(:rb)
 	# rb = -1
 	setup.simpleMerge copy(tape1, :ra)
@@ -551,7 +594,8 @@ end
 
 # Adds tape2 to tape1
 def add(tape1, tape2)
-	m = moveDistance(tape2, BitWidth - 1, :right)
+	m = SubMachine.stub "add-#{tape1},#{tape2}"
+	m.simpleMerge moveDistance(tape2, BitWidth - 1, :right)
 	m2 = moveDistance(tape1,  BitWidth - 1, :right)
 	m.simpleMerge(m2)
 
@@ -597,25 +641,37 @@ def add(tape1, tape2)
 end
 
 def createScope()
-  return scan(:env. :right, BlankSymbol).simpleMerge(writeSymbol(:env, :scope))
+	m = SubMachine.stub "createScope"
+	m.simpleMerge scan(:env, :right, BlankSymbol)
+	m.simpleMerge writeSymbol(:env, :scope)
+	return m
 end
 
 def createMethodScope()
-  return scan(:env. :right, BlankSymbol).simpleMerge(writeSymbol(:env, :methodScope))
+	m = SubMachine.stub "createMethodScope"
+	m.simpleMerge scan(:env, :right, BlankSymbol)
+	m.simpleMerge writeSymbol(:env, :scope)
+	return m
 end
 
 def destroyScope()
-  m = scanBefore(:env, :right, BlankSymbol)
+	m = SubMachine.stub "destroyScope"
+  m.simpleMerge scanBefore(:env, :right, BlankSymbol)
   m2 = SubMachine.empty 'DestroyScope'
-  m2.states[m2.first].transitions = [Transition.new({:env => :scope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]]
+  m2.states[m2.first].transitions = [
+	  Transition.new({:env => :scope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), 
+	  Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]
   m.simpleMerge m2
   return m
 end
 
 def destroyMethodScope()
-  m = scanBefore(:env, :right, BlankSymbol)
+	m = SubMachine.stub "destroyMethodScope"
+  m.simpleMerge scanBefore(:env, :right, BlankSymbol)
   m2 = SubMachine.empty 'DestroyMethodScope'
-  m2.states[m2.first].transitions = [Transition.new({:env => :methodScope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]]
+  m2.states[m2.first].transitions = [
+	  Transition.new({:env => :methodScope},[Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.last), 
+	  Transition.new(Hash.new, [Action.new(BlankSymbol, :env), Action.new(:left, :env)], m2.first)]
 
 	m.simpleMerge m2
 	return m
