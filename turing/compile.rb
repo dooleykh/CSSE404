@@ -485,9 +485,9 @@ def compileExpr(tree, env)
 	when :Expr9
 		case tree.type
 		when :new
-			return newObject(:acc, $GlobalEnv[tree.value])
+			return newObject(:acc, $GlobalEnv[tree.children[0].value])
 		when :id
-			return getVar(:acc, tree.value)
+			return getVar(:acc, tree.children[0].value)
 		when :this
 			return getVar(:acc, :this)
 		when :integer
@@ -606,7 +606,8 @@ def compileExpr(tree, env)
 		if tree.type == :+
 			m.simpleMerge add(:acc, :stack)
 		else
-			m.simpleMerge sub(:acc, :stack)
+			m.simpleMerge sub(:stack, :acc)
+			m.simpleMerge copy(:stack, :acc)
 		end
 
 		m.simpleMerge pop(:stack)

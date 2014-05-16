@@ -260,7 +260,7 @@ end
 def getVar(tape, name)
 	mFoundEnv = SubMachine.stub 'lookup3'
 	mFoundEnv.simpleMerge copy(:env, tape)
-	mFoundEvn.simpleMerge writeConstant(:ra, 0)
+	mFoundEnv.simpleMerge writeConstant(:ra, 0)
 
 	# Scan to end of env
 	mNotFound = scan(:env, :right, BlankSymbol)
@@ -281,8 +281,8 @@ def getVar(tape, name)
 	# checks if we're at the right reference
 	checkLoc = eq(tape, :objects)
 	link(checkLoc.states[checkLoc.lastFalse], mNF2.first)
-	checkLoc.simpleMergeTrue copy(:objects, tape)
-	checkLoc.simpleMergeTrue writeConstant(:ra, 1)
+	checkLoc.mergeTrue copy(:objects, tape)
+	checkLoc.mergeTrue writeConstant(:ra, 1)
 	link(checkLoc.states[checkLoc.lastTrue], mNF2.last)
 
 	errorState = SubMachine.empty 'lookupError'
@@ -318,16 +318,16 @@ def getVar(tape, name)
 	mNotFound.simpleMerge mNF3
 
 	# Go to end of env
-	m = Submachine.stub "getVar-#{tape},#{name}"
+	m = SubMachine.stub "getVar-#{tape},#{name}"
 	m.simpleMerge scan(:env, :right, BlankSymbol)
 
 	# look for var in env
 	m2 = SubMachine.empty 'lookup2'
 	m2.merge mFoundEnv
-	link(mFoundEnv[mFoundEnv.last], m2.last)
+	link(mFoundEnv.states[mFoundEnv.last], m2.last)
 	m2.merge mNotFound
-	link(mNotFound[mNotFound.last], m2.last)
-	m2.states[m.first].transitions = [
+	link(mNotFound.states[mNotFound.last], m2.last)
+	m2.states[m2.first].transitions = [
 		Transition.new( {:env=> :methodScope}, Array.new, mNotFound.first),
 		Transition.new( {:env=> name}, [Action.new(:right, :env)], mFoundEnv.first),
 		Transition.new( Hash.new, [Action.new(:left, :env)], m2.first)]
@@ -482,9 +482,7 @@ end
 def push(tape)
 	m = SubMachine.stub "push-#{tape}"
 	m.simpleMerge moveDistance(tape, BitWidth, :right)
-	m2 = SubMachine.empty 'push'
-	m2.states[m2.first].transitions = [ Transition.new( Hash.new, [Action.new(:sep, tape), Action.new(:right, tape)], m2.last)]
-	m.simpleMerge(m2)
+	m.simpleMerge writeSymbol(tape, :sep)
 	m
 end
 
@@ -504,7 +502,7 @@ def pop(tape)
 	m.states[m.first].transitions = [Transition.new( Hash.new, a, m.last)]
 
 	# Now we're on top of the last bit of the prev. value on stack
-	m2 = moveDistance(tape, BitWidth - 1, :left)
+	m2 = moveDistance(tape, (2*BitWidth) + 1, :left)
 	m.simpleMerge(m2)
 
 	m
