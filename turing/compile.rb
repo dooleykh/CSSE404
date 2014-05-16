@@ -5,7 +5,7 @@ require_relative "./turingBuilder.rb"
 $GlobalEnv = Hash.new
 $Failed = false
 
-# Recursively typecheck some statements
+# Recursively typecheck some statements, returning the turing machine that does them.
 def walk(tree, env)
 	if not tree
 		return
@@ -17,20 +17,55 @@ def walk(tree, env)
 		$Failed = true
 
 	when :StmtSt
-		tree.children.each { |c| walk(c, env) }
+		m = SubMachine.stub 'stmtSt'
+		tree.children.each { |c| 
+			m.simpleMerge walk(c, env) 
+		}
+		return m
 
 	when :Expr
 		resolveExprType(tree, env)
+		return compileExpr(tree, env)
 
 	when :Stmt
 	  	case tree.type
 	  	when :block
 		  	env << {}
-		  	tree.children.each { |c| walk(c, env) }
+			m = SubMachine.stub 'Stmt: block'
+			m.simpleMerge createScope
+		  	tree.children.each { |c| 
+				m.simpleMerge walk(c, env) }
+			m.simpleMerge destroyScope
 		  	env.pop
+			return m
       
-		when :if, :while
+		when :if
 			tree.children.each { |c| walk(c, env) }
+
+			expr = compileExpr(tree.children[0])
+			if_true = compileExpr(tree.children[1])
+			if_false = compileExpr(tree.children[2])
+
+			m = writeConstant(:ra, 0)
+			m.simpleMerge eq(:acc, :ra)
+			m.simpleMergeAfter(expr)
+			m.mergeTrue if_false
+			m.mergeFalse if_true
+			return m.join
+
+		when :while
+			tree.children.each { |c| walk(c, env) }
+
+		    m = SubMachine.stub 'while'
+		    m.simpleMerge compileExpr(tree.children[0])
+		    m.simpleMerge writeConstant(:ra, 0)
+		    m = eq(:acc, :ra).simpleMergeAfter m
+		    m.mergeFalse compileExpr(tree.children[1])
+		    m2 = SubMachine.stub
+		    link(m.states[m.lastFalse], m2.first)
+		    m2.simpleMerge m 'Stmt: while'
+		    link(m.states[m.lastTrue], m2.last)
+		    return m2
 
 		when :var_dec
 			unless resolveType(tree.children[0]) == resolveExprType(tree.children[2], env)
@@ -45,8 +80,15 @@ def walk(tree, env)
 				raise JavaSyntaxError
 			end
 
+			m = compileExpr(tree.children[2], env)
+			m.simpleMerge scan(:env, :right, BlankSymbol)
+			m.simpleMerge writeSymbol(:env, tree.children[1].value)
+			m.simpleMerge copy(:acc, :env)
+
 			var = JavaVariable.new(resolveType(tree.children[0]))
 			env.last[tree.children[1].value] = var
+
+			return m
 
 	  	when :var_asgn
 
@@ -63,8 +105,28 @@ def walk(tree, env)
         		raise JavaSyntaxError
 		  	end
 
+			m = compileExpr(tree.children[1], env)
+			m.simpleMerge push(:stack)
+			m.simpleMerge copy(:acc, :stack)
+
+			m.simpleMerge getVar(:ra, tree.children[0].value)
+			m.simpleMerge copy(:stack, :acc)
+			m.simpleMerge pop(:stack)
+
+			m.simpleMerge writeConstant(:rb, 0)
+			m = eq(:ra, :rb).simpleMergeAfter m
+			m.mergeTrue copy(:acc, :env)
+			m.mergeFalse copy(:acc, :objects)
+
+			return m.join
+
 		when :print
 		  resolveExprType(tree.children[0], env)
+
+		  m = compileExpr(tree.children[0], env)
+		  m.simpleMerge output(:acc)
+
+		  return m
     end
     
   end
@@ -97,11 +159,15 @@ class JavaMethod
 	@argnames
 	@ret
 	@location
+	@submachine
 	@parseTree
 
-	attr_accessor :name, :args, :argnames, :ret, :location, :parseTree
+	attr_accessor :name, :args, :argnames, :ret, :location, :parseTree, :submachine
 
-	def initialize()
+	def initialize(name)
+		@name = name
+		@submachine = SubMachine.stub "method-#{@name}"
+		@location = @submachine.first
 	end
 
 end
@@ -126,7 +192,7 @@ end
 def passes(parse_tree)
 	firstPass(parse_tree)
 	secondPass
-	thirdPass
+	return thirdPass
 end
 
 def firstPass(parse_tree)
@@ -156,6 +222,8 @@ def firstPass(parse_tree)
 	}
 end
 
+$mainMethod = nil
+
 def secondPass
 
 	#Second pass - define each method and field in the class environments
@@ -166,10 +234,10 @@ def secondPass
 		classObject.env[:this] = classObject.name
 
 		if classObject.parseTree.name == :MainClassDecl
-			classObject.env['main'] = JavaMethod.new()
+			classObject.env['main'] = JavaMethod.new('main')
+			$mainMethod = classObject.env['main']
 			classObject.env['main'].args = [:StringArr]
 			classObject.env['main'].argnames = [ classObject.parseTree.children[1].value ]
-			classObject.env['main'].name = 'main'
 			classObject.env['main'].parseTree = classObject.parseTree
 			classObject.main = true
 			# We don't really have to worry about this very much because you
@@ -237,7 +305,7 @@ def secondPass
 					next
 				end
 
-				methodObject = JavaMethod.new
+				methodObject = JavaMethod.new(name)
 				classObject.env[name] = methodObject
 
 				methodObject.name = name
@@ -298,10 +366,11 @@ def thirdPass
 			method = i.env['main']
 
 			if method.parseTree.children.size > 2
-				env = [method.env, Hash.new]
+				env = [i.env, Hash.new]
 				# No point in binding String[] args because it can't be referenced
 
-				walk(method.parseTree.children[2], env)
+				a = walk(method.parseTree.children[2], env)
+				method.submachine.simpleMerge a
 			end
 			method.parseTree = nil
 			next
@@ -333,7 +402,7 @@ def thirdPass
 			
 			#validate the method body
 			if stmt
-				walk(stmt, env)
+				j.submachine.simpleMerge walk(stmt, env)
 			end
 
 			#verify the return type
@@ -346,7 +415,30 @@ def thirdPass
 		}
 	}
 
+	m = init
 
+	#merge all the submachines into m
+	$GlobalEnv.each_value{ |i|
+		i.env.each_value{ |j|
+			unless j.class == JavaMethod
+				next
+			end
+
+			m.merge j.submachine
+		}
+	}
+	Goto.finalize
+	m.merge Goto
+
+	haltM = halt
+	m.merge haltM
+
+	link(m.states[m.last], $mainMethod.submachine.first)
+	link(m.states[$mainMethod.submachine.last], haltM.first)
+
+	m.finalize
+
+	return m
 end
 
 def lookup(symbol, env)
@@ -399,7 +491,7 @@ def compileExpr(tree, env)
 		when :this
 			return getVar(:acc, :this)
 		when :integer
-			return writeConstant(:acc, tree.value)
+			return writeConstant(:acc, tree.children[0].value.to_i)
 		when :null
 			return writeConstant(:acc, 0)
 		when :true
@@ -488,7 +580,7 @@ def compileExpr(tree, env)
 		m.simpleMerge push(:stack)
 		m.simpleMerge copy(:acc, :stack)
 
-		m.simpleMerge compileExpression(tree.children[1], env)
+		m.simpleMerge compileExpr(tree.children[1], env)
 
 		if tree.type == :/
 			return 'todo'
@@ -509,7 +601,7 @@ def compileExpr(tree, env)
 		m.simpleMerge push(:stack)
 		m.simpleMerge copy(:acc, :stack)
 
-		m.simpleMerge compileExpression(tree.children[1], env)
+		m.simpleMerge compileExpr(tree.children[1], env)
 
 		if tree.type == :+
 			m.simpleMerge add(:acc, :stack)
@@ -540,7 +632,7 @@ def compileExpr(tree, env)
 		m.simpleMerge push(:stack)
 		m.simpleMerge copy(:acc, :stack)
 
-		m.simpleMerge compileExpression(tree.children[1], env)
+		m.simpleMerge compileExpr(tree.children[1], env)
 
 		if tree.type == :==
 			m2 = eq(:acc, :stack)
@@ -569,7 +661,7 @@ def compileExpr(tree, env)
 		m = eq(:ra, :acc).mergeAfter m
 		m.mergeTrue writeConstant(:acc, 0)
 
-		m.mergeFalse compileExpression(tree.children[1], env)
+		m.mergeFalse compileExpr(tree.children[1], env)
 
 		m2 = eq(:ra, :acc)
 		m2.mergeFalse writeConstant(:acc, 1)
@@ -593,7 +685,7 @@ def compileExpr(tree, env)
 		m = eq(:ra, :acc).mergeAfter m
 		m.mergeFalse writeConstant(:acc, 1)
 
-		m.mergeTrue compileExpression(tree.children[1], env)
+		m.mergeTrue compileExpr(tree.children[1], env)
 
 		m2 = eq(:ra, :acc)
 		m2.mergeTrue writeConstant(:acc, 0)
@@ -605,75 +697,7 @@ def compileExpr(tree, env)
 		m = m.join
 
 		return m
-    
-#  when :StmtSt
-#    m = SubMachine.empty 'StmtSt'
-#    m.simpleMerge compileExpression(tree.children[0])
-#    m.simpleMerge compileExpression(tree.children[1])
-#    return m
 
-  when :Stmt
-    case tree.type
-    when :block
-      m = SubMachine.empty 'Stmt: block'
-      m.simpleMerge createScope
-      m.simpleMerge compileExpression(tree.children[0])
-      m.simpleMerge destroyScope
-      return m
-    when :if
-      expr = compileExpression(tree.children[0])
-      if_true = compileExpression(tree.children[1])
-      if_false = compileExpression(tree.children[2])
-
-      m = writeConstant(:ra, 0)
-      m.simpleMerge eq(:acc, :ra)
-      m.simpleMergeAfter(expr)
-      m.mergeTrue if_false
-      m.mergeFalse if_true
-      return m.join
-    when :while
-      m = SubMachine.empty
-      m.simpleMerge compileExpr(tree.children[0])
-      m.simpleMerge writeConstant(:ra, 0)
-      m = eq(:acc, :ra).simpleMergeAfter m
-      m.mergeFalse compileExpr(tree.children[1])
-      m2 = SubMachine.empty
-      link(m.states[m.lastFalse], m2.first)
-      m2.simpleMerge m 'Stmt: while'
-      link(m.states[m.lastTrue], m2.last)
-      return m2
-    when :var_asgn
-		m = compileExpr(tree.children[1], env)
-		m.simpleMerge push(:stack)
-		m.simpleMerge copy(:acc, :stack)
-
-		m.simpleMerge getVar(:ra, tree.children[0].value)
-		m.simpleMerge copy(:stack, :acc)
-		m.simpleMerge pop(:stack)
-
-		m.simpleMerge writeConstant(:rb, 0)
-		m = eq(:ra, :rb).simpleMergeAfter m
-		m.mergeTrue copy(:acc, :env)
-		m.mergeFalse copy(:acc, :objects)
-
-		return m.join
-      
-    when :var_dec
-		m = compileExpr(tree.children[2], env)
-		m.simpleMerge scan(:env, :right, BlankSymbol)
-		m.simpleMerge writeSymbol(:env, tree.children[1].value)
-		m.simpleMerge copy(:acc, :env)
-
-		return m
-
-	when :print
-		m = compileExpr(tree.children[0], env)
-		m.simpleMerge copy(:acc, :output)
-		m.simpleMerge output(:output)
-
-		return m
-
-    end
 	end
 end
 
@@ -810,9 +834,15 @@ end
 if __FILE__ == $PROGRAM_NAME
   source = File.absolute_path(ARGF.filename)
   parse_tree = program(Lexer.get_words(source))
-  passes(parse_tree)
+  machine = passes(parse_tree)
   unless $Failed
 	  puts "Y'okay!"
+	  puts 'running machine'
+	  print machine.to_s
+
+
+	  machine.run(nil, 0.1)
   end
+
 end
 
