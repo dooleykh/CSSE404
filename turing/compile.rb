@@ -638,9 +638,45 @@ def compileExpr(tree, env)
 
 		if tree.children.size == 1
 			return m
-		else
-			return 'todo'
 		end
+
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
+		m.simpleMerge compileExpr(tree.children[1], env)
+
+		case tree.type
+		when :<
+			m.simpleMerge sub(:stack, :acc)
+			m2 = pos(:stack)
+			m2.mergeTrue writeConstant(:acc, 0)
+			m2.mergeFalse writeConstant(:acc, 1)
+			m.simpleMerge m2.join
+		when :>
+			m.simpleMerge sub(:acc, :stack)
+			m2 = pos(:acc)
+			m2.mergeTrue writeConstant(:acc, 0)
+			m2.mergeFalse writeConstant(:acc, 1)
+			m.simpleMerge m2.join
+		when :<=
+			m.simpleMerge sub(:acc, :stack)
+			m2 = pos(:acc)
+			m2.mergeTrue writeConstant(:acc, 1)
+			m2.mergeFalse writeConstant(:acc, 0)
+			m.simpleMerge m2.join
+		when :>=
+			m.simpleMerge sub(:stack, :acc)
+			m2 = pos(:stack)
+			m2.mergeTrue writeConstant(:acc, 1)
+			m2.mergeFalse writeConstant(:acc, 0)
+			m.simpleMerge m2.join
+		else
+			raise "what is this #{m.type}"
+		end
+
+		m.simpleMerge pop(:stack)
+
+		return m
+
 
 	when :Expr3
 		m = compileExpr(tree.children[0], env)
