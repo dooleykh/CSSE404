@@ -611,6 +611,34 @@ def mult(tape1, tape2)
 	m
 end
 
+# divides tape1 by tape2. Uses ra, rb, rc
+def div(tape1, tape2)
+	m = SubMachine.stub "div-#{tape1},#{tape2}"
+	m.simpleMerge copy(tape2, :rb)
+	m.simpleMerge invert(:rb)
+	m.simpleMerge writeConstant(:ra, 0)
+	m.simpleMerge writeConstant(:rc, 1)
+
+	m.simpleMerge add(tape1, :rb)
+
+	loopEnc = SubMachine.empty "div-loop"
+	loopM = pos(tape1)
+	loopM.mergeTrue add(:ra, :rc)
+	loopM.mergeTrue add(tape1, :rb)
+	link(loopM.states[loopM.lastTrue], loopM.first)
+	link(loopM.states[loopM.lastFalse], loopEnc.last)
+	link(loopEnc.states[loopEnc.first], loopM.first)
+	loopEnc.merge loopM
+
+	m.simpleMerge loopEnc
+	m.simpleMerge copy(:ra, tape1)
+
+	return m
+end
+
+
+
+
 # Adds tape2 to tape1
 def add(tape1, tape2)
 	m = SubMachine.stub "add-#{tape1},#{tape2}"

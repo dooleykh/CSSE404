@@ -397,10 +397,10 @@ def thirdPass
 			#find the method body
 			stmt = nil
 			if j.parseTree.children.size > 2
-				if j.parseTree.children[1].name == :StmtSt
-					stmt = j.parseTree.children[1]
-				elsif j.parseTree.children[2].name == :StmtSt
+				if j.parseTree.children[2].name == :StmtSt
 					stmt = j.parseTree.children[2]
+				elsif j.parseTree.children[3].name == :StmtSt
+					stmt = j.parseTree.children[3]
 				end
 			end
 			
@@ -493,7 +493,7 @@ def compileExpr(tree, env)
 	when :Expr9
 		case tree.type
 		when :new
-			return newObject(:acc, $GlobalEnv[tree.children[0].value])
+			m = newObject(:acc, $GlobalEnv[tree.children[0].value])
 		when :id
 			return getVar(:acc, tree.children[0].value)
 		when :this
@@ -512,7 +512,13 @@ def compileExpr(tree, env)
 
 	when :Expr8
 
+		if tree.children.size == 1
+			return compileExpr(tree.children[0], env)
+		end
+
 		m = compileExpr(tree.children[0], env)
+		m.simpleMerge push(:stack)
+		m.simpleMerge copy(:acc, :stack)
 		type = resolveExprType(tree.children[0], env)
 
 		tree = tree.children[1]
@@ -521,28 +527,28 @@ def compileExpr(tree, env)
 		while tree != nil
 			methodObject = lookup(tree.children[0].value, [$GlobalEnv[type].env])
 
-			if tree.children.size == 3
+			if (tree.children.size > 1) and (tree.children[1].name == :Expr8St)
 				argtree = tree.children[1].children[0]
 				methodObject.argnames.each{ |n|
-					m.simpleMerge writeSymbol(:env, n)
-					m.simpleMerge compileExpr(argreee.children[0], env)
+					m.simpleMerge compileExpr(argtree.children[0], env)
 					argtree = argtree.children[1]
-					m.simpleMerge push(:stack)
-					m.simpleMerge copy(:acc, :stack)
+					m.simpleMerge push(:args)
+					m.simpleMerge copy(:acc, :args)
 				}
 			end
 
 			m.simpleMerge createMethodScope
 			m.simpleMerge scan(:env, :right, BlankSymbol)
 			m.simpleMerge writeSymbol(:env, :this)
-			m.simpleMerge copy(:acc, :env)
+			m.simpleMerge copy(:stack, :env)
+			m.simpleMerge pop(:stack)
 			m.simpleMerge createScope
 
 			methodObject.argnames.reverse.each{ |n|
 				m.simpleMerge scan(:env, :right, BlankSymbol)
 				m.simpleMerge writeSymbol(:env, n)
-				m.simpleMerge copy(:stack, :env)
-				m.simpleMerge pop(:stack)
+				m.simpleMerge copy(:args, :env)
+				m.simpleMerge pop(:args)
 			}
 
 
@@ -594,10 +600,12 @@ def compileExpr(tree, env)
 		m.simpleMerge compileExpr(tree.children[1], env)
 
 		if tree.type == :/
-			return 'todo'
+			m.simpleMerge div(:stack, :acc)
+			m.simpleMerge copy(:stack, :acc)
+		else
+			m.simpleMerge mult(:acc, :stack)
 		end
 
-		m.simpleMerge mult(:acc, :stack)
 		m.simpleMerge pop(:stack)
 
 		return m
@@ -848,7 +856,7 @@ if __FILE__ == $PROGRAM_NAME
   parse_tree = program(Lexer.get_words(source))
   machine = passes(parse_tree)
   unless $Failed
-	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions."
+	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
 	  puts 'running machine'
 
 

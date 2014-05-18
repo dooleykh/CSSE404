@@ -29,6 +29,16 @@ class Machine
 		return i
 	end
 
+	def actions_size
+		i = 0
+		@states.each_value{ |s|
+			s.transitions.each{ |t|
+				i += t.actions.size
+			}
+		}
+		return i
+	end
+
 	def run(input, delay = nil, names = false)
 		lastTime = Time.now
 		state = :start
@@ -96,7 +106,7 @@ class Transition
 
 	@nextState
 
-	attr_accessor :nextState
+	attr_accessor :nextState, :actions
 
 	def to_s
 		result = ''
