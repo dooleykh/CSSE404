@@ -40,21 +40,24 @@ def walk(tree, env)
 			return m
       
 		when :if
-			tree.children.each { |c| walk(c, env) }
+			#tree.children.each { |c| walk(c, env) }
 
-			expr = compileExpr(tree.children[0])
-			if_true = walk(tree.children[1])
-			if_false = walk(tree.children[2])
+			expr = compileExpr(tree.children[0], env)
+			if_true = walk(tree.children[1], env)
+			if_false = walk(tree.children[2], env)
 
-			m = writeConstant(:ra, 0)
-			m.simpleMerge eq(:acc, :ra)
+			m = eq(:acc, :ra)
+			m.simpleMergeAfter writeConstant(:ra, 0)
 			m.simpleMergeAfter(expr)
+
 			m.mergeTrue if_false
 			m.mergeFalse if_true
-			return m.join
+			m = m.join
 
+			#print m.to_s_short
+			return m
 		when :while
-			tree.children.each { |c| walk(c, env) }
+			#tree.children.each { |c| walk(c, env) }
 
 		    m = SubMachine.stub 'while'
 		    m.simpleMerge compileExpr(tree.children[0], env)
@@ -111,7 +114,7 @@ def walk(tree, env)
 			m.simpleMerge push(:stack)
 			m.simpleMerge copy(:acc, :stack)
 
-			m.simpleMerge getVar(:ra, tree.children[0].value)
+			m.simpleMerge getVar(:acc, tree.children[0].value)
 			m.simpleMerge copy(:stack, :acc)
 			m.simpleMerge pop(:stack)
 
@@ -124,7 +127,6 @@ def walk(tree, env)
 
 		when :print
 		  resolveExprType(tree.children[0], env)
-
 		  m = compileExpr(tree.children[0], env)
 		  m.simpleMerge output(:acc)
 
@@ -413,6 +415,10 @@ def thirdPass
 			  $Failed = true
 			end
 
+			# also compile the return
+			j.submachine.simpleMerge compileExpr(j.parseTree.children[-1], env)
+			link(j.submachine.states[j.submachine.last], Goto.first)
+
 			j.parseTree = nil
 		}
 	}
@@ -511,17 +517,20 @@ def compileExpr(tree, env)
 
 		tree = tree.children[1]
 
-		while tree != nil
-			methodObject = $GlobalEnv[type].env[tree.children[0]]
 
-			argtree = tree.children[1].children[0]
-			methodObject.argnames.each{ |n|
-				m.simpleMerge writeSymbol(:env, n)
-				m.simpleMerge compileExpr(argreee.children[0], env)
-				argtree = argtree.children[1]
-				m.simpleMerge push(:stack)
-				m.simpleMerge copy(:acc, :stack)
-			}
+		while tree != nil
+			methodObject = lookup(tree.children[0].value, [$GlobalEnv[type].env])
+
+			if tree.children.size == 3
+				argtree = tree.children[1].children[0]
+				methodObject.argnames.each{ |n|
+					m.simpleMerge writeSymbol(:env, n)
+					m.simpleMerge compileExpr(argreee.children[0], env)
+					argtree = argtree.children[1]
+					m.simpleMerge push(:stack)
+					m.simpleMerge copy(:acc, :stack)
+				}
+			end
 
 			m.simpleMerge createMethodScope
 			m.simpleMerge scan(:env, :right, BlankSymbol)
@@ -637,7 +646,7 @@ def compileExpr(tree, env)
 
 		m.simpleMerge compileExpr(tree.children[1], env)
 
-		if tree.type == :==
+		if tree.type == :eq
 			m2 = eq(:acc, :stack)
 			m2.mergeTrue writeConstant(:acc, 1)
 			m2.mergeFalse writeConstant(:acc, 0)
@@ -661,7 +670,7 @@ def compileExpr(tree, env)
 		end
 
 		m.simpleMerge writeConstant(:ra, 0)
-		m = eq(:ra, :acc).mergeAfter m
+		m = eq(:ra, :acc).simpleMergeAfter m
 		m.mergeTrue writeConstant(:acc, 0)
 
 		m.mergeFalse compileExpr(tree.children[1], env)
@@ -685,7 +694,7 @@ def compileExpr(tree, env)
 		end
 
 		m.simpleMerge writeConstant(:ra, 0)
-		m = eq(:ra, :acc).mergeAfter m
+		m = eq(:ra, :acc).simpleMergeAfter m
 		m.mergeFalse writeConstant(:acc, 1)
 
 		m.mergeTrue compileExpr(tree.children[1], env)
@@ -731,7 +740,7 @@ def resolveExprType(tree, env)
 			else
 				raise JavaSyntaxError
 			end
-		elsif tree.type = '-'
+		elsif tree.type == '-'
 			if a == :int or a == :boolean
 				return a
 			end
@@ -751,7 +760,7 @@ def resolveExprType(tree, env)
 		item = tree.children[0]
 		case tree.type
 		when :new
-			return item.children[0].value
+			return item.value
 		when :id
       l = lookup(item.value, env)
       if l.nil?
@@ -812,7 +821,7 @@ def matchArgs(method, argslist, env)
 end
 
 def expr8chain(symbol, type, env)
-  method = lookup(symbol.children[0].value, env)
+  method = lookup(symbol.children[0].value, [$GlobalEnv[type].env])
   if method.nil?
 		puts "Method #{symbol.children[0].value} in #{env.first[:this]} doesn't exist"
 			  $Failed = true
@@ -839,12 +848,11 @@ if __FILE__ == $PROGRAM_NAME
   parse_tree = program(Lexer.get_words(source))
   machine = passes(parse_tree)
   unless $Failed
-	  puts "Y'okay!"
+	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions."
 	  puts 'running machine'
-	  #print machine.to_s
 
 
-	  machine.run(nil,nil,nil)
+	  machine.run(nil,nil,false)
   end
 
 end

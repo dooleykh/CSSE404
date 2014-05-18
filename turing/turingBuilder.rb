@@ -43,7 +43,7 @@ def init
 	m.simpleMerge writeConstant(:rb, 0)
 	m.simpleMerge writeConstant(:rc, 0)
 	m.simpleMerge writeSymbol(:objects, :loc)	
-	m.simpleMerge writeConstant(:objects, 0)
+	m.simpleMerge writeConstant(:objects, 1)
 	m.simpleMerge writeSymbol(:env, :methodScope)
 	m.simpleMerge writeConstant(:output, 0)
 
@@ -51,7 +51,7 @@ def init
 end
 
 def halt
-	m = SubMachine.stub 'halt'
+	m = SubMachine.empty 'halt'
 	m.states[m.first].transitions = [Transition.new( Hash.new, [Action.new(:halt, nil)], m.first)]
 	return m
 end
@@ -131,8 +131,10 @@ class GotoState < Machine
 	@first
 	@last
 
+	attr_accessor :first
+
 	def initialize
-		@labels = Hash.new
+		@labels = Array.new
 		@first = getNextState 'goto-front'
 		@last = getNextState 'goto-end'
 		@states = Hash.new
@@ -232,7 +234,7 @@ end
 
 # makes a new instance of given class, leaving a reference to it on tape. Uses tape and ra
 def newObject(tape, javaClass)
-	m = SubMachine.stub "newObject-#{tape},#{symbol}"
+	m = SubMachine.stub "newObject-#{tape},#{javaClass.name}"
 	m.simpleMerge scan(:objects, :right, BlankSymbol)
 	m.simpleMerge scanBefore(:objects, :left, :loc)
 	m.simpleMerge copy(:objects, tape)
@@ -240,23 +242,44 @@ def newObject(tape, javaClass)
 	m.simpleMerge add(tape, :ra)
 	m.simpleMerge scan(:objects, :right, BlankSymbol)
 	m.simpleMerge writeSymbol(:objects, :loc)
-	m.simpleMerge copy(:ra, :objects)
-	
-	javaClass.env.each_key { |k|
-		unless javaClass.env[k].class == JavaVariable
-			next
+	m.simpleMerge copy(tape, :objects)
+	m.simpleMerge moveDistance(:objects, BitWidth, :right)
+
+	vars = Array.new
+	classObject = javaClass
+	while true
+		classObject.env.each_key{ |k|
+			unless classObject.env[k].class == JavaVariable
+				next
+			end
+
+			unless vars.include? k
+				vars.push k
+			end
+		}
+
+		if classObject.env[:super]
+			classObject = $GlobalEnv[classObject.env[:super]]
+		else
+			break
 		end
+
+	end
+
+
+	vars.each { |k|
 
 		m.simpleMerge writeSymbol(:objects, k)
 		m.simpleMerge writeConstant(:objects, 0)
 		m.simpleMerge moveDistance(:objects, BitWidth, :right)
 	}
 
+	m.simpleMerge moveDistance(:objects, BitWidth, :left)
+
 	m
 end
 
 # gets the value of variable, copies it to tape. If found on :object , writes 1 to ra, else writes 0.
-# todo so much debugging
 def getVar(tape, name)
 	mFoundEnv = SubMachine.stub 'lookup3'
 	mFoundEnv.simpleMerge copy(:env, tape)
@@ -272,8 +295,7 @@ def getVar(tape, name)
 	mNotFound.simpleMerge copy(:env, tape)
 
 	# scan to front of objects
-	mNotFound.simpleMerge scan(:objects, :left, BlankSymbol)
-
+	mNotFound.simpleMerge scanBefore(:objects, :left, BlankSymbol)
 
 	# Scans for the right reference
 	mNF2 = SubMachine.empty 'lookupThis'
@@ -281,7 +303,6 @@ def getVar(tape, name)
 	# checks if we're at the right reference
 	checkLoc = eq(tape, :objects)
 	link(checkLoc.states[checkLoc.lastFalse], mNF2.first)
-	checkLoc.mergeTrue copy(:objects, tape)
 	checkLoc.mergeTrue writeConstant(:ra, 1)
 	link(checkLoc.states[checkLoc.lastTrue], mNF2.last)
 
@@ -319,7 +340,7 @@ def getVar(tape, name)
 
 	# Go to end of env
 	m = SubMachine.stub "getVar-#{tape},#{name}"
-	m.simpleMerge scan(:env, :right, BlankSymbol)
+	m.simpleMerge scanBefore(:env, :right, BlankSymbol)
 
 	# look for var in env
 	m2 = SubMachine.empty 'lookup2'
@@ -648,7 +669,7 @@ end
 def createMethodScope()
 	m = SubMachine.stub "createMethodScope"
 	m.simpleMerge scan(:env, :right, BlankSymbol)
-	m.simpleMerge writeSymbol(:env, :scope)
+	m.simpleMerge writeSymbol(:env, :methodScope)
 	return m
 end
 

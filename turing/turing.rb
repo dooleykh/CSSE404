@@ -17,6 +17,18 @@ class Machine
 		@halted = false
 	end
 
+	def states_size
+		return @states.size
+	end
+
+	def transitions_size
+		i = 0
+		@states.each_value{ |s|
+			i += s.transitions.size
+		}
+		return i
+	end
+
 	def run(input, delay = nil, names = false)
 		lastTime = Time.now
 		state = :start
@@ -65,6 +77,14 @@ class Machine
 		return result
 	end
 
+	def to_s_short
+		result = ""
+		@states.keys.sort.each{|s|
+			result = "#{result}State #{s} => \{#{@states[s].to_s_short}\}\n"
+		}
+		return result
+	end
+
 end
 
 class Transition
@@ -76,7 +96,7 @@ class Transition
 
 	@nextState
 
-	attr_accessor :nestState
+	attr_accessor :nextState
 
 	def to_s
 		result = ''
@@ -183,6 +203,15 @@ class State
 			result = "#{result}  #{t.to_s}\n"
 		}
 
+		return result
+	end
+
+	def to_s_short
+		result = ""
+		prev = nil
+		@transitions.map{|x| x.nextState}.sort.uniq.each{|t|
+			result += " #{t}"
+		}
 		return result
 	end
 
