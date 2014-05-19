@@ -1,3 +1,4 @@
+require 'set'
 BlankSymbol = :blank
 
 class Machine
@@ -100,15 +101,130 @@ class Machine
 	end
 
 	def optimize
+		puts 'Beginning optimization'
+		removeUnlinked
+		removeEpsilon
+		while mergeIdentical
+		end
+
 	end
 
-	# remove states not reachable from start
+	def removeEpsilon
+		i = 0
+		@states.each_key{ |name|
+			if name == :start
+				next
+			end
+
+
+			state = @states[name]
+			if (
+				state.transitions.size == 1 and 
+				state.transitions[0].conditions.empty? and 
+				state.transitions[0].actions.empty?
+			)
+				oldState = name
+				newState = state.transitions[0].nextState
+
+				@states.each_value{ |s|
+					s.transitions.each{ |t|
+						if t.nextState == oldState
+							t.nextState = newState
+						end
+					}
+				}
+
+				@states.delete name
+				i += 1
+			end
+		}
+
+		if i>0
+			puts "Removed #{i} epsilon transitions"
+		end
+	end
+
+
+
+	def removeUnlinked
+		linked = Set.new
+		linked.add :start
+		stack = [:start]
+
+		until stack.empty?
+			state = stack.pop
+			@states[state].transitions.each{ |t|
+				nextState = t.nextState
+
+				unless linked.include? nextState
+					unless stack.include? nextState
+						stack.push nextState
+					end
+
+					linked.add nextState
+				end
+			}
+		end
+
+		i = 0
+		@states.each_key{ |k|
+			unless linked.include? k
+				@states.delete k
+				i += 1
+			end
+		}
+
+		if i > 0
+			puts "Removed #{i} unreachable states"
+		end
+	end
+
+	def mergeIdentical
+		names = @states.keys.to_ary
+		count = 0
+		(0..(@states.size()-2)).each{ |i|
+			((i+1)..(@states.size()-1)).each{ |j|
+				unless @states[names[i]]
+					next
+				end
+
+				unless @states[names[j]]
+					next
+				end
+
+				if @states[names[i]] == @states[names[j]]
+					mergeStates(names[i], names[j])
+					count += 1
+				end
+			}
+		}
+
+		if count > 0
+			puts "Merged #{count} identical states"
+			return true
+		else
+			return false
+		end
+	end
+
+	# Merges two identical states (they had better be identical)
+	def mergeStates(state1, state2)
+		#p state1
+		#p state2
+		@states.each_value{ |s|
+			s.transitions.each{ |t|
+				if t.nextState == state2
+					t.nextState = state1
+				end
+			}
+		}
+
+		@states.delete state2
+	end
 
 	# remove states with unconditional transitions (append actions to transitions to that state)
 
 	# combine identical states 
-
-	# optimize action sequences (remove > < > <)
 
 	# rename states and tape symbols
 end
@@ -122,7 +238,7 @@ class Transition
 
 	@nextState
 
-	attr_accessor :nextState, :actions
+	attr_accessor :nextState, :actions, :conditions
 
 	def to_s
 		result = ''
@@ -168,6 +284,27 @@ class Transition
 		@actions.each{ |a| a.perform machine }
 		return @nextState
 	end
+
+	def ==(b)
+		if b.class != Transition
+			return false
+		end
+
+		if b.conditions != @conditions
+			return false
+		end
+
+		if b.nextState != @nextState
+			return false
+		end
+
+		if b.actions != @actions
+			return false
+		end
+
+		return true
+	end
+
 end
 
 class Action
@@ -175,6 +312,8 @@ class Action
 	# Tape: name of the tape in question
 	@action
 	# action: :left, :right, :print, :halt, or symbol to write
+
+	attr_accessor :tape, :action
 
 	def initialize(action, tape)
 		@action = action
@@ -209,6 +348,22 @@ class Action
 		else
 			return "(#{@tape} write \"#{@action}\")"
 		end
+	end
+
+	def ==(b)
+		if b.class != Action
+			return false
+		end
+
+		if b.tape != @tape
+			return false
+		end
+
+		if b.action != @action
+			return false
+		end
+
+		return true
 	end
 
 end
@@ -256,7 +411,17 @@ class State
 		return nil
 	end
 
+	def ==(b)
+		if b.class != State
+			return false
+		end
 
+		if b.transitions != @transitions
+			return false
+		end
+
+		return true
+	end
 end
 
 class Tape

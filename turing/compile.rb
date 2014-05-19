@@ -925,7 +925,10 @@ if __FILE__ == $PROGRAM_NAME
   source = File.absolute_path(ARGF.filename)
   parse_tree = program(Lexer.get_words(source))
   machine = passes(parse_tree)
+
   unless $Failed
+	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
+	  machine.optimize
 	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
 	  puts 'running machine'
 
