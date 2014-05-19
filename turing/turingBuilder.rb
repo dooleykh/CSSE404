@@ -42,6 +42,7 @@ def init
 	m.simpleMerge writeConstant(:ra, 0)
 	m.simpleMerge writeConstant(:rb, 0)
 	m.simpleMerge writeConstant(:rc, 0)
+	m.simpleMerge writeConstant(:rd, 0)
 	m.simpleMerge writeSymbol(:objects, :loc)	
 	m.simpleMerge writeConstant(:objects, 1)
 	m.simpleMerge writeSymbol(:env, :methodScope)

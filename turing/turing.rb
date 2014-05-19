@@ -101,7 +101,7 @@ class Machine
 	end
 
 	def optimize
-		puts 'Beginning optimization'
+		puts "\nOptimizing..."
 		removeUnlinked
 		removeEpsilon
 		while mergeIdentical
@@ -140,7 +140,7 @@ class Machine
 		}
 
 		if i>0
-			puts "Removed #{i} epsilon transitions"
+			puts "    Removed #{i} epsilon transitions"
 		end
 	end
 
@@ -175,7 +175,7 @@ class Machine
 		}
 
 		if i > 0
-			puts "Removed #{i} unreachable states"
+			puts "    Removed #{i} unreachable states"
 		end
 	end
 
@@ -200,7 +200,7 @@ class Machine
 		}
 
 		if count > 0
-			puts "Merged #{count} identical states"
+			puts "    Merged #{count} identical states"
 			return true
 		else
 			return false

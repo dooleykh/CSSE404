@@ -923,17 +923,28 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   source = File.absolute_path(ARGF.filename)
+  puts "\nParsing..."
   parse_tree = program(Lexer.get_words(source))
+  puts "Y'okay! Parse successful. Generated parse tree of size #{parse_tree.size}."
+  puts "\nCompiling..."
   machine = passes(parse_tree)
 
   unless $Failed
-	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
+	  puts "Y'okay! Initial compilation successful.\n    Generated Turing Machine with #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
 	  machine.optimize
-	  puts "Y'okay! - #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
-	  puts 'running machine'
+	  puts "Y'okay! Optimization successful.\n    Generated Turing Machine with #{machine.states_size} states, #{machine.transitions_size} transitions, #{machine.actions_size} actions."
 
+	  puts "\nWriting output..."
+	  fname = 'a.out'
+	  if ARGV.size > 0
+		  fname = ARGV[0]
+	  end
 
-	  machine.run(nil,nil,false)
+	  f = File.open(fname, 'w')
+	  f.print Marshal.dump(machine)
+	  f.close
+	  
+	  puts "Y'okay! Turing Machine written to #{fname}."
 
   end
 

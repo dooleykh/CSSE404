@@ -1,6 +1,6 @@
 #module Parser
   
-  require '../lexer/lexer.rb'
+  require_relative '../lexer/lexer.rb'
 
   First = {
     :Program => ["class"],
@@ -69,6 +69,19 @@
       end
     end
 
+	def size
+		if @children.size == 0
+			return 1
+		end
+
+		i = 0
+		@children.each{ |c|
+			i += c.size
+		}
+
+		return i
+	end
+
   end
 
   # for ints and ids
@@ -87,6 +100,11 @@
       end
 
     end
+
+	def size
+		return 1
+	end
+
   end
 
   class InvalidParse < Exception
