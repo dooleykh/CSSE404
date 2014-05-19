@@ -97,7 +97,8 @@ def walk(tree, env)
 
 	  	when :var_asgn
 
-		  	unless lookup(tree.children[0].value, env).type == resolveExprType(tree.children[1], env)
+			type = resolveExprType(tree.children[1], env)
+		  	unless (lookup(tree.children[0].value, env).type == type) || (type == :null)
 				puts "Error - that expression doesn't make that type"
 				$Failed = true
         		
@@ -138,8 +139,14 @@ end
 
 # turns a :type into :int, :boolean, or the string of the id
 def resolveType(token)
+	if token.class == ParseNode
+		return token.value
+	end
+
 	if token.type == :int or token.type == :boolean
 		token = token.type
+	elsif token.type == :id
+		token = token.children[0].value
 	else
 		token = token.value
 	end
@@ -181,13 +188,21 @@ class JavaClass
 	@env
 	@parseTree
 	@main
+	@equivSet
 
-	attr_accessor :env, :name, :parseTree, :main
+	attr_accessor :env, :name, :parseTree, :main, :equivSet
 
 	def initialize()
 		@env = Hash.new
 		@main = false
+		@equivSet = Array.new
 	end
+
+	def setSuper(other)
+		@equivSet.concat other.equivSet
+		@equivSet.push other.name
+	end
+
 end
 
 class JavaSyntaxError < Exception
@@ -263,6 +278,7 @@ def secondPass
 
 				elsif child.type == :id # Class we're extending
 					classObject.env[:super] = child.value
+					classObject.setSuper $GlobalEnv[child.value]
 					if child.value == classObject.name
 						puts "Class #{child.value} can't extend itself"
 						$Failed = true
@@ -399,7 +415,7 @@ def thirdPass
 			if j.parseTree.children.size > 2
 				if j.parseTree.children[2].name == :StmtSt
 					stmt = j.parseTree.children[2]
-				elsif j.parseTree.children[3].name == :StmtSt
+				elsif (j.parseTree.children.size > 3) and (j.parseTree.children[3].name == :StmtSt)
 					stmt = j.parseTree.children[3]
 				end
 			end
@@ -410,8 +426,19 @@ def thirdPass
 			end
 
 			#verify the return type
-			unless resolveExprType(j.parseTree.children[-1], env) == j.ret
-				puts "Error - method #{j.name} in #{i.name} does not return the correct type"
+			type = resolveExprType(j.parseTree.children[-1], env)
+			allowed = false
+			if type == j.ret
+				allowed = true
+			elsif $GlobalEnv[j.ret] and $GlobalEnv[type]
+				if $GlobalEnv[type].equivSet.include? j.ret
+					allowed = true
+				end
+			end
+
+			unless allowed
+				puts "Error - method #{j.name} in #{i.name} does not return the correct type (#{resolveExprType(j.parseTree.children[-1], env)} vs #{j.ret})"
+				j.parseTree.prin
 			  $Failed = true
 			end
 
@@ -517,14 +544,14 @@ def compileExpr(tree, env)
 		end
 
 		m = compileExpr(tree.children[0], env)
-		m.simpleMerge push(:stack)
-		m.simpleMerge copy(:acc, :stack)
 		type = resolveExprType(tree.children[0], env)
 
 		tree = tree.children[1]
 
 
 		while tree != nil
+			m.simpleMerge push(:stack)
+			m.simpleMerge copy(:acc, :stack)
 			methodObject = lookup(tree.children[0].value, [$GlobalEnv[type].env])
 
 			if (tree.children.size > 1) and (tree.children[1].name == :Expr8St)
@@ -720,6 +747,7 @@ def compileExpr(tree, env)
 		m.mergeFalse compileExpr(tree.children[1], env)
 
 		m2 = eq(:ra, :acc)
+		m2.simpleMergeAfter writeConstant(:ra, 0)
 		m2.mergeFalse writeConstant(:acc, 1)
 		m2.mergeTrue writeConstant(:acc, 0)
 		m2 = m2.join
@@ -744,6 +772,7 @@ def compileExpr(tree, env)
 		m.mergeTrue compileExpr(tree.children[1], env)
 
 		m2 = eq(:ra, :acc)
+		m2.simpleMergeAfter writeConstant(:ra, 0)
 		m2.mergeTrue writeConstant(:acc, 0)
 		m2.mergeFalse writeConstant(:acc, 1)
 		m2 = m2.join
@@ -757,18 +786,18 @@ def compileExpr(tree, env)
 	end
 end
 
-
-
-
-
-
-			
-
-
-
 def resolveExprType(tree, env)
 	case tree.name
-	when :Expr, :Expr2, :Expr3, :Expr4, :Expr5, :Expr6
+	when :Expr4, :Expr3
+		if tree.children.size > 1
+			resolveExprType(tree.children[0], env)
+			resolveExprType(tree.children[1], env)
+			return :boolean
+		else
+			return resolveExprType(tree.children[0], env)
+		end
+
+	when :Expr, :Expr2, :Expr5, :Expr6
 		if tree.children.length == 1
 			return resolveExprType(tree.children[0], env)
 		end
@@ -814,8 +843,10 @@ def resolveExprType(tree, env)
       return l.type
 		when :this
       return lookup(:this, env)
-		when :integer, :null
+		when :integer
 			return :int
+		when :null
+			return :null
 		when :true, :false
 			return :boolean
 		when :expr
@@ -896,7 +927,7 @@ if __FILE__ == $PROGRAM_NAME
 	  puts 'running machine'
 
 
-	  machine.run(nil,nil,false)
+	  machine.run(nil,0,false)
   end
 
 end

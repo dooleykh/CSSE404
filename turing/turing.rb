@@ -46,6 +46,7 @@ class Machine
 			printState state
 		end
 		
+		transitionsCount = 0
 		
 		while !@halted
 			unless delay == nil
@@ -62,10 +63,13 @@ class Machine
 				puts state
 			end
 			state = @states[state].nextState(self)
+			transitionsCount += 1
 			unless delay==nil
 				printState state
 			end
 		end
+
+		puts "Halted after #{transitionsCount} transitions."
 	end
 
 	def printState(state)

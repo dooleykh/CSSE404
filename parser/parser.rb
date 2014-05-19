@@ -45,7 +45,7 @@
     def print_recurse(depth, sameline)
       #puts "depth: #{depth}"
       unless sameline
-        print ' '*depth
+        print '|'*depth
       end
 
       print @name
@@ -61,6 +61,7 @@
         else
           puts
           @children.each { |x|
+			  print '|'
             x.print_recurse(depth + 1, false) }
         end
       else
@@ -77,7 +78,7 @@
     def print_recurse(depth, sameline)
 
       unless sameline
-        print ' '*depth
+        print '|'*depth
       end
 
       print @name
@@ -943,6 +944,7 @@
 
     result = ParseTree.new
     result.children = []
+	result.name = :Expr8Pr
     eatThru(".", iter)
     result.children.push id(iter)
     eatThru("(", iter)
