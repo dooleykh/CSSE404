@@ -99,6 +99,18 @@ class Machine
 		return result
 	end
 
+	def optimize
+	end
+
+	# remove states not reachable from start
+
+	# remove states with unconditional transitions (append actions to transitions to that state)
+
+	# combine identical states 
+
+	# optimize action sequences (remove > < > <)
+
+	# rename states and tape symbols
 end
 
 class Transition
