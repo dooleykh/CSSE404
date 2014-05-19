@@ -1,7 +1,7 @@
 require_relative 'turing.rb'
 
 BitWidth = 32
-TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :ra, :rb, :rc, :args]
+TapeNames = [:output, :input, :env, :objects, :call, :stack, :acc, :ra, :rb, :rc, :rd, :args]
 NameLength = 5
 
 $nextState = 0
@@ -580,6 +580,53 @@ def sub(tape1, tape2)
 	m.simpleMerge invert(tape2)
 	m.simpleMerge add(tape1, tape2)
 	m.simpleMerge invert(tape2)
+
+	m
+end
+
+# wraps division/multiplication for negative numbers. Uses rd
+def wrapper(tape1, tape2, operation)
+	m = SubMachine.stub "wrapper"
+
+	m2 = pos(tape1)
+	m2.simpleMergeAfter push(:rd)
+	m2.mergeTrue writeConstant(:rd, 0)
+	m2.mergeFalse writeConstant(:rd, 1)
+	m2.mergeFalse invert(tape1)
+	m.simpleMerge m2.join
+
+	m3 = pos(tape2)
+	m3.simpleMergeAfter push(:rd)
+	m3.mergeTrue writeConstant(:rd, 0)
+	m3.mergeFalse writeConstant(:rd, 1)
+	m3.mergeFalse invert(tape2)
+	m.simpleMerge m3.join
+
+	if(operation == :mult)
+		m.simpleMerge mult(tape1, tape2)
+	else
+		m.simpleMerge div(tape1, tape2)
+	end
+
+
+	m.simpleMerge writeConstant(:rb, 1)
+
+	m4 = eq(:rd, :rb)
+	m4.mergeTrue invert(:acc)
+	if tape2 != :acc
+		m4.mergeTrue invert(tape2)
+	end
+	m.simpleMerge m4.join
+	m.simpleMerge pop(:rd)
+
+
+	m5 = eq(:rd, :rb)
+	m5.mergeTrue invert(:acc)
+	if tape1 != :acc
+		m6.mergeTrue invert(tape1)
+	end
+	m.simpleMerge m5.join
+	m.simpleMerge pop(:rd)
 
 	m
 end

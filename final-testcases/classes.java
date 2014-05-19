@@ -14,6 +14,8 @@ class main2{
 		lib2 three = new lib2();
 		b = three.thing();
 
+		int tr = (new lib3()).printThings();
+
 	}
 }
 
@@ -28,4 +30,16 @@ class lib extends main2{
 }
 
 class lib2 extends lib{
+}
+
+class lib3 extends lib{
+
+	public int local(){
+		return 31;
+	}
+
+	public int printThings(){
+		System.out.println(this.local());
+		return 0;
+	}
 }

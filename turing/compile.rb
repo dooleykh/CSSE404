@@ -553,6 +553,9 @@ def compileExpr(tree, env)
 			m.simpleMerge push(:stack)
 			m.simpleMerge copy(:acc, :stack)
 			methodObject = lookup(tree.children[0].value, [$GlobalEnv[type].env])
+			p tree.children[0].value
+			p type
+
 
 			if (tree.children.size > 1) and (tree.children[1].name == :Expr8St)
 				argtree = tree.children[1].children[0]
@@ -627,10 +630,12 @@ def compileExpr(tree, env)
 		m.simpleMerge compileExpr(tree.children[1], env)
 
 		if tree.type == :/
-			m.simpleMerge div(:stack, :acc)
+			m.simpleMerge copy(:acc, :ra)
 			m.simpleMerge copy(:stack, :acc)
+			m.simpleMerge copy(:ra, :stack)
+			m.simpleMerge wrapper(:acc, :stack, :div)
 		else
-			m.simpleMerge mult(:acc, :stack)
+			m.simpleMerge wrapper(:acc, :stack, :mult)
 		end
 
 		m.simpleMerge pop(:stack)
@@ -927,7 +932,7 @@ if __FILE__ == $PROGRAM_NAME
 	  puts 'running machine'
 
 
-	  machine.run(nil,0,false)
+	  machine.run(nil,nil,false)
   end
 
 end
