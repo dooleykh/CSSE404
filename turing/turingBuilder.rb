@@ -358,44 +358,75 @@ def getVar(tape, name)
 
 end
 	
-# If the values of the two tapes are equal
 def eq(tape1, tape2)
 	m = ForkSubMachine.empty "eq-#{tape1},#{tape2}"
 
-	n = Array.new
-	n.push m.first
-	(BitWidth - 1).times { n.push getNextState }
+	rewind = SubMachine.empty "eq2.t-#{tape1},#{tape2}"
+	rewind.states[rewind.first].transitions = [
+		Transition.new( {tape1=>0}, [Action.new(:left, tape1), Action.new(:left, tape2)], rewind.first),
+		Transition.new( {tape1=>1}, [Action.new(:left, tape1), Action.new(:left, tape2)], rewind.first),
+		Transition.new( Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], rewind.last)
+	]
 
-	n.each_index{|i|
-		trueActions = [Action.new(:right, tape1), Action.new(:right, tape2)]
-		falseActions = Array.new
-		i.times{ 
-			falseActions.push Action.new(:left, tape1)
-			falseActions.push Action.new(:left, tape2)
-		}
+	rewind2 = SubMachine.empty "eq2.f-#{tape1},#{tape2}"
+	rewind2.states[rewind2.first].transitions = [
+		Transition.new( {tape1=>0}, [Action.new(:left, tape1), Action.new(:left, tape2)], rewind2.first),
+		Transition.new( {tape1=>1}, [Action.new(:left, tape1), Action.new(:left, tape2)], rewind2.first),
+		Transition.new( Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], rewind2.last)
+	]
 
-		nextState = nil
-		if(i < n.size()-1)
-			nextState = n[i+1]
-		else
-			nextState = m.lastTrue
-		end
+	m.states[m.first] = State.new([
+		Transition.new( {tape1=>0, tape2=>0}, [Action.new(:right, tape1), Action.new(:right, tape2)], m.first),
+		Transition.new( {tape1=>0, tape2=>1}, [Action.new(:left, tape1), Action.new(:left, tape2)], m.lastFalse),
+		Transition.new( {tape1=>1, tape2=>0}, [Action.new(:left, tape1), Action.new(:left, tape2)], m.lastFalse),
+		Transition.new( {tape1=>1, tape2=>1}, [Action.new(:right, tape1), Action.new(:right, tape2)], m.first),
+		Transition.new( Hash.new, [Action.new(:left, tape1), Action.new(:left, tape2)], m.lastTrue)])
 
-		m.states[n[i]] = State.new([
-			Transition.new( {tape1 => 0, tape2 => 0}, trueActions, nextState),
-			Transition.new( {tape1 => 0, tape2 => 1}, falseActions, m.lastFalse),
-			Transition.new( {tape1 => 1, tape2 => 0}, falseActions, m.lastFalse),
-			Transition.new( {tape1 => 1, tape2 => 1}, trueActions, nextState)])
-	}
-
-	m2 = moveDistance(tape1, BitWidth, :left)
-	m3 = moveDistance(tape2, BitWidth, :left)
-
-	m.mergeTrue m2
-	m.mergeTrue m3
+	m.mergeFalse rewind2
+	m.mergeTrue rewind
 
 	m
 end
+
+
+# If the values of the two tapes are equal
+#def eq(tape1, tape2)
+#	m = ForkSubMachine.empty "eq-#{tape1},#{tape2}"
+#
+#	n = Array.new
+#	n.push m.first
+#	(BitWidth - 1).times { n.push getNextState }
+#
+#	n.each_index{|i|
+#		trueActions = [Action.new(:right, tape1), Action.new(:right, tape2)]
+#		falseActions = Array.new
+#		i.times{ 
+#			falseActions.push Action.new(:left, tape1)
+#			falseActions.push Action.new(:left, tape2)
+#		}
+#
+#		nextState = nil
+#		if(i < n.size()-1)
+#			nextState = n[i+1]
+#		else
+#			nextState = m.lastTrue
+#		end
+#
+#		m.states[n[i]] = State.new([
+#			Transition.new( {tape1 => 0, tape2 => 0}, trueActions, nextState),
+#			Transition.new( {tape1 => 0, tape2 => 1}, falseActions, m.lastFalse),
+#			Transition.new( {tape1 => 1, tape2 => 0}, falseActions, m.lastFalse),
+#			Transition.new( {tape1 => 1, tape2 => 1}, trueActions, nextState)])
+#	}
+#
+#	m2 = moveDistance(tape1, BitWidth, :left)
+#	m3 = moveDistance(tape2, BitWidth, :left)
+#
+#	m.mergeTrue m2
+#	m.mergeTrue m3
+#
+#	m
+#end
 
 # if the value on the tape is positive
 def pos(tape)
@@ -467,37 +498,56 @@ def scanBefore(tape, direction, symbol)
 	m
 end
 
-
-# copies BitWidth symbols from tape1 to tape2
 def copy(tape1, tape2)
 	m = SubMachine.empty "copy-#{tape1},#{tape2}"
-	n = Array.new
-	n.push m.first
-	(BitWidth - 1).times{
-		n.push getNextState
-	}
+	m.states[m.first].transitions = [
+		Transition.new( {tape1 => 0}, [Action.new(0, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], m.first),
+		Transition.new( {tape1 => 1}, [Action.new(1, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], m.first),
+		Transition.new( Hash.new, [Action.new(:left, tape1), Action.new(:left, tape2)], m.last)]
 
-	n.each_index { |i|
-		nextName = nil
-		if i == (n.size() -1)
-			nextName = m.last
-		else
-			nextName = n[i+1]
-		end
+	m2 = SubMachine.empty "copy2-#{tape1},#{tape2}"
+	m2.states[m2.first].transitions = [
+		Transition.new( {tape1=>0}, [Action.new(:left, tape1), Action.new(:left, tape2)], m2.first),
+		Transition.new( {tape1=>1}, [Action.new(:left, tape1), Action.new(:left, tape2)], m2.first),
+		Transition.new( Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], m2.last)
+	]
 
-		m.states[n[i]] = State.new([
-			Transition.new( {tape1 => 0}, [Action.new(0, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName),
-			Transition.new( {tape1 => 1}, [Action.new(1, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName)
-		])
-	}
+	m.simpleMerge m2
 
-	m2 = moveDistance(tape1, BitWidth, :left)
-	m3 = moveDistance(tape2, BitWidth, :left)
-	m.simpleMerge(m2)
-	m.simpleMerge(m3)
-
-	m
+	return m
 end
+
+
+# copies BitWidth symbols from tape1 to tape2
+#def copy(tape1, tape2)
+#	m = SubMachine.empty "copy-#{tape1},#{tape2}"
+#	n = Array.new
+#	n.push m.first
+#	(BitWidth - 1).times{
+#		n.push getNextState
+#	}
+#
+#	n.each_index { |i|
+#		nextName = nil
+#		if i == (n.size() -1)
+#			nextName = m.last
+#		else
+#			nextName = n[i+1]
+#		end
+#
+#		m.states[n[i]] = State.new([
+#			Transition.new( {tape1 => 0}, [Action.new(0, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName),
+#			Transition.new( {tape1 => 1}, [Action.new(1, tape2), Action.new(:right, tape1), Action.new(:right, tape2)], nextName)
+#		])
+#	}
+#
+#	m2 = moveDistance(tape1, BitWidth, :left)
+#	m3 = moveDistance(tape2, BitWidth, :left)
+#	m.simpleMerge(m2)
+#	m.simpleMerge(m3)
+#
+#	m
+#end
 
 # pushes space for a new value onto tape as in a stack. Doesn't actually write a new value.
 def push(tape)
@@ -543,36 +593,60 @@ end
 # Inverts the value on tape. Uses ra.
 def invert(tape)
 	m = SubMachine.empty "invert-#{tape}"
+	m.states[m.first] = State.new([
+		Transition.new( {tape => 0}, [Action.new(1, tape), Action.new(:right, tape)], m.first),
+		Transition.new( {tape => 1}, [Action.new(0, tape), Action.new(:right, tape)], m.first),
+		Transition.new( Hash.new, [Action.new(:left, tape), Action.new(:left, tape)], m.last)])
 
-	n = Array.new
-	n.push m.first
-	(BitWidth-1).times{
-		n.push getNextState
-	}
+	rewind = SubMachine.empty "invert2-#{tape}"
+	rewind.states[rewind.first].transitions = [
+		Transition.new( {tape=>0}, [Action.new(:left, tape)], rewind.first),
+		Transition.new( {tape=>1}, [Action.new(:left, tape)], rewind.first),
+		Transition.new( Hash.new, [Action.new(:right, tape)], rewind.last)
+	]
 
-	n.each_index{ |i|
-		nextName = ''
-		if i == n.size - 1
-			nextName = m.last
-		else
-			nextName = n[i+1]
-		end
-
-		m.states[n[i]] = State.new([
-			Transition.new( {tape => 0}, [Action.new(1, tape), Action.new(:right, tape)], nextName),
-			Transition.new( {tape => 1}, [Action.new(0, tape), Action.new(:right, tape)], nextName)])
-	}
-
-	m2 = moveDistance(tape, BitWidth, :left)
-	m3 = writeConstant(:ra, 1)
-	m4 = add(tape, :ra)
-
-	m.simpleMerge(m2)
-	m.simpleMerge(m3)
-	m.simpleMerge(m4)
+	m.simpleMerge rewind
+	m.simpleMerge writeConstant(:ra, 1)
+	m.simpleMerge add(tape, :ra)
 
 	m
 end
+
+
+
+## Inverts the value on tape. Uses ra.
+#def invert(tape)
+#	m = SubMachine.empty "invert-#{tape}"
+#
+#	n = Array.new
+#	n.push m.first
+#	(BitWidth-1).times{
+#		n.push getNextState
+#	}
+#
+#	n.each_index{ |i|
+#		nextName = ''
+#		if i == n.size - 1
+#			nextName = m.last
+#		else
+#			nextName = n[i+1]
+#		end
+#
+#		m.states[n[i]] = State.new([
+#			Transition.new( {tape => 0}, [Action.new(1, tape), Action.new(:right, tape)], nextName),
+#			Transition.new( {tape => 1}, [Action.new(0, tape), Action.new(:right, tape)], nextName)])
+#	}
+#
+#	m2 = moveDistance(tape, BitWidth, :left)
+#	m3 = writeConstant(:ra, 1)
+#	m4 = add(tape, :ra)
+#
+#	m.simpleMerge(m2)
+#	m.simpleMerge(m3)
+#	m.simpleMerge(m4)
+#
+#	m
+#end
 
 # subtracts tape2 from tape1. Uses ra
 def sub(tape1, tape2)
@@ -623,7 +697,7 @@ def wrapper(tape1, tape2, operation)
 	m5 = eq(:rd, :rb)
 	m5.mergeTrue invert(:acc)
 	if tape1 != :acc
-		m6.mergeTrue invert(tape1)
+		m8.mergeTrue invert(tape1)
 	end
 	m.simpleMerge m5.join
 	m.simpleMerge pop(:rd)
@@ -683,56 +757,87 @@ def div(tape1, tape2)
 	return m
 end
 
-
-
-
-# Adds tape2 to tape1
 def add(tape1, tape2)
 	m = SubMachine.stub "add-#{tape1},#{tape2}"
 	m.simpleMerge moveDistance(tape2, BitWidth - 1, :right)
-	m2 = moveDistance(tape1,  BitWidth - 1, :right)
-	m.simpleMerge(m2)
+	m.simpleMerge moveDistance(tape1, BitWidth - 1, :right)
 
-	m3 = SubMachine.empty 'add'
-	n1 = Array.new
-	n2 = Array.new
-	BitWidth.times{
-		n1.push getNextState
-		n2.push getNextState
-	}
+	m2 = SubMachine.empty "add2-#{tape1},#{tape2}"
+	s0 = getNextState
+	s1 = getNextState
 
-	n1.each_index { |i|
-		if i < (n1.size() -1)
-			next1 = n1[i+1]
-			next2 = n2[i+1]
-		else
-			next1 = next2 = m3.last
-		end
-		
-		m3.states[n1[i]] = State.new([
-			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
+	link(m2.states[m2.first], s0)
 
-		m3.states[n2[i]] = State.new([
-			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
-			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
-			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
-			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
-	}
+	m2.states[s0] = State.new([
+		Transition.new( {tape2=> 0, tape1 => 0}, [Action.new(:left, tape1), Action.new(:left, tape2)], s0),
+		Transition.new( {tape2=> 0, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s0),
+		Transition.new( {tape2=> 1, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s0),
+		Transition.new( {tape2=> 1, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s1),
+		Transition.new( Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], m2.last)
+	])
 
-	newLast = getNextState
-	m3.states[m3.last].transitions = [Transition.new(Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], newLast)]
-	m3.last = newLast
-	m3.states[newLast] = State.new( Array.new )
+	m2.states[s1] = State.new([
+		Transition.new( {tape2=> 0, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s0),
+		Transition.new( {tape2=> 0, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s1),
+		Transition.new( {tape2=> 1, tape1 => 0}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s1),
+		Transition.new( {tape2=> 1, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], s1),
+		Transition.new( Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], m2.last)
+	])
 
-	m3.states[m3.first] = State.new ([Transition.new(Hash.new, Array.new, n1[0])])
-
-	m.simpleMerge(m3)
+	m.simpleMerge m2
 
 	m
 end
+
+
+
+## Adds tape2 to tape1
+#def add(tape1, tape2)
+#	m = SubMachine.stub "add-#{tape1},#{tape2}"
+#	m.simpleMerge moveDistance(tape2, BitWidth - 1, :right)
+#	m2 = moveDistance(tape1,  BitWidth - 1, :right)
+#	m.simpleMerge(m2)
+#
+#	m3 = SubMachine.empty 'add'
+#	n1 = Array.new
+#	n2 = Array.new
+#	BitWidth.times{
+#		n1.push getNextState
+#		n2.push getNextState
+#	}
+#
+#	n1.each_index { |i|
+#		if i < (n1.size() -1)
+#			next1 = n1[i+1]
+#			next2 = n2[i+1]
+#		else
+#			next1 = next2 = m3.last
+#		end
+#		
+#		m3.states[n1[i]] = State.new([
+#			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+#			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+#			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+#			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
+#
+#		m3.states[n2[i]] = State.new([
+#			Transition.new( {tape2 => 0, tape1 => 0}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next1),
+#			Transition.new( {tape2 => 1, tape1 => 0}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+#			Transition.new( {tape2 => 0, tape1 => 1}, [Action.new(0, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2),
+#			Transition.new( {tape2 => 1, tape1 => 1}, [Action.new(1, tape1), Action.new(:left, tape1), Action.new(:left, tape2)], next2)])
+#	}
+#
+#	newLast = getNextState
+#	m3.states[m3.last].transitions = [Transition.new(Hash.new, [Action.new(:right, tape1), Action.new(:right, tape2)], newLast)]
+#	m3.last = newLast
+#	m3.states[newLast] = State.new( Array.new )
+#
+#	m3.states[m3.first] = State.new ([Transition.new(Hash.new, Array.new, n1[0])])
+#
+#	m.simpleMerge(m3)
+#
+#	m
+#end
 
 def createScope()
 	m = SubMachine.stub "createScope"

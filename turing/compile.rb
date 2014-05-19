@@ -553,8 +553,6 @@ def compileExpr(tree, env)
 			m.simpleMerge push(:stack)
 			m.simpleMerge copy(:acc, :stack)
 			methodObject = lookup(tree.children[0].value, [$GlobalEnv[type].env])
-			p tree.children[0].value
-			p type
 
 
 			if (tree.children.size > 1) and (tree.children[1].name == :Expr8St)
@@ -933,6 +931,7 @@ if __FILE__ == $PROGRAM_NAME
 
 
 	  machine.run(nil,nil,false)
+
   end
 
 end
