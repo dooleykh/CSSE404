@@ -491,26 +491,37 @@ class Tape
 	end
 
 	def to_s
+		start = self.to_s_raw
+		begin
+			start += " (#{start.gsub(/[|>]/, "").to_i(2)})"
+		rescue
+		end
+		start += "\n"
+		print start
+	end
+
+	def to_s_raw
 		pNode = @node
 		while pNode.left != nil
 			pNode = pNode.left
 		end
 
-		print '|'
+		result = ""
+		result += '|'
 		while true
 
 			if pNode == @node
-				print '>'
+				result += '>'
 			end
 
-			print pNode.symbol
-			print '|'
+			result += pNode.symbol.to_s
+			result += '|'
 			pNode = pNode.right
 			if pNode == nil
 				break
 			end
 		end
-		puts
+		return result
 	end
 
 end

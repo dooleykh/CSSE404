@@ -15,7 +15,7 @@ Class definitions are not stored - the compiler knows the relevant offsets
 :stack contains the arithmetic stack
 
 :acc is where the result of an expression is put
-:ra, :rb, :rc are intermediate values for turingBuilder
+:ra, :rb, :rc, :rd are intermediate values for turingBuilder
 
 :args is the arguments to a procedure, :ret is the return value
 (at the beginning of a procedure, we remove the arguments from :args and
