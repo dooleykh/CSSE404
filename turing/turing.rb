@@ -40,7 +40,7 @@ class Machine
 		return i
 	end
 
-	def run(input, delay = nil, names = false)
+	def run(input, delay = nil, names = false, skip = false)
 		lastTime = Time.now
 		state = :start
 		unless delay == nil
@@ -51,13 +51,20 @@ class Machine
 		
 		while !@halted
 			unless delay == nil
-				while Time.now < lastTime + delay
-					a = (lastTime + delay) - Time.now
-					if a > 0
-						sleep a
+				if skip == false
+					while Time.now < lastTime + delay
+						a = (lastTime + delay) - Time.now
+						if a > 0
+							sleep a
+						end
+					end
+					lastTime = Time.now
+				else
+					if Time.now > lastTime + delay
+						printState state
+						lastTime = Time.now
 					end
 				end
-				lastTime = Time.now
 			end
 
 			if names
@@ -65,7 +72,7 @@ class Machine
 			end
 			state = @states[state].nextState(self)
 			transitionsCount += 1
-			unless delay==nil
+			if (delay != nil) && (skip == false)
 				printState state
 			end
 		end
