@@ -841,6 +841,7 @@ def resolveExprType(tree, env)
       l = lookup(item.value, env)
       if l.nil?
         #variable doesn't exist
+		puts "No such variable #{item.value}"
         raise JavaSyntaxError
       end
       return l.type
